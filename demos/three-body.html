@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three-Body Motion Simulator</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --bg-top: #152744;
+      --panel: #101a2b;
+      --panel-2: #14223a;
+      --text: #dbe7ff;
+      --muted: #94a9d8;
+      --accent: #39c0ff;
+      --danger: #ff6b6b;
+      --ok: #5ee89c;
+      --line: #1f3357;
+      --hero-1: #0f1b30;
+      --hero-2: #101a2b;
+      --control-bg: #0e1a2e;
+      --status-bg: #0f1827;
+      --card-bg: #0d1729;
+      --footer-bg: #0d1729;
+      --canvas-bg: #050a14;
+      --canvas-grid: #1a2842;
+      --hud-text: #dbe7ff;
+    }
+    body.light {
+      --bg: #eef3fb;
+      --bg-top: #d9e8ff;
+      --panel: #ffffff;
+      --panel-2: #f2f7ff;
+      --text: #15213b;
+      --muted: #526487;
+      --accent: #1f78d1;
+      --danger: #c73636;
+      --ok: #2b8b57;
+      --line: #c8d6ee;
+      --hero-1: #f7fbff;
+      --hero-2: #eef5ff;
+      --control-bg: #ffffff;
+      --status-bg: #f7fbff;
+      --card-bg: #f8fbff;
+      --footer-bg: #f7fbff;
+      --canvas-bg: #eef5ff;
+      --canvas-grid: #d5e3f8;
+      --hud-text: #1f2e4e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at top right, var(--bg-top) 0%, var(--bg) 50%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    body.light {
+      background: #ffffff;
+    }
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .panel {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .hero {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      background: linear-gradient(180deg, var(--hero-1), var(--hero-2));
+    }
+    .hero h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+    }
+    .hero p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .layout {
+      display: grid;
+      gap: 12px;
+    }
+    .row {
+      display: grid;
+      gap: 10px;
+      align-items: end;
+    }
+    .preset-row {
+      grid-template-columns: minmax(260px, 420px) 1fr;
+    }
+    .time-row {
+      grid-template-columns: minmax(180px, 220px) minmax(160px, 200px) 160px;
+      justify-content: start;
+    }
+    .action-row {
+      grid-template-columns: 110px 110px 130px minmax(280px, 1fr);
+      align-items: center;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    select, input, button {
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--control-bg);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    button {
+      cursor: pointer;
+      transition: 0.15s transform ease, 0.15s opacity ease;
+      min-width: 78px;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    #startBtn { border-color: #1d5b7c; background: #12324d; }
+    #resetBtn { border-color: #3d4460; background: #232b41; }
+    #integratorBtn {
+      border-color: #2f6c5a;
+      background: #15382f;
+      width: 130px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    body.light #startBtn {
+      border-color: #7fb1ea;
+      background: #dcebff;
+      color: #11345f;
+    }
+    body.light #resetBtn {
+      border-color: #b8c9e6;
+      background: #edf3ff;
+      color: #21314f;
+    }
+    body.light #integratorBtn {
+      border-color: #8ec7b0;
+      background: #ddf5ea;
+      color: #154b36;
+    }
+    #themeBtn {
+      border-color: #7c5c1d;
+      background: #4a3612;
+      width: 130px;
+      white-space: nowrap;
+    }
+    body.light #themeBtn {
+      border-color: #c79d3c;
+      background: #f0d089;
+      color: #3a2b0d;
+    }
+    .status {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: var(--status-bg);
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+    }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--danger); }
+    .footer {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: var(--footer-bg);
+    }
+    .grid3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .body-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: var(--card-bg);
+    }
+    .body-card h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      letter-spacing: 0.2px;
+    }
+    .body-fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(110px, 1fr));
+      gap: 8px;
+    }
+    .body-fields input { width: 100%; }
+    .body-fields .field { font-size: 12px; }
+    .canvas-wrap {
+      height: min(68vh, 760px);
+      min-height: 360px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--canvas-bg);
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    @media (max-width: 900px) {
+      .preset-row { grid-template-columns: 1fr; }
+      .time-row { grid-template-columns: 1fr 1fr; }
+      .action-row { grid-template-columns: 1fr 1fr 1fr; }
+      .action-row .status { grid-column: 1 / -1; }
+      .grid3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="hero">
+      <h1>Three-Body Motion Simulator</h1>
+      <p>Set masses, radii, initial positions and velocities, then compare trajectories with different integrators and time steps.</p>
+    </section>
+
+    <section class="panel">
+      <div class="layout">
+        <div class="row preset-row">
+          <label class="field">
+            Preset (Full Parameters)
+            <select id="presetSelect"></select>
+          </label>
+          <div></div>
+        </div>
+
+        <div class="row">
+          <div class="grid3" id="bodyFormGrid"></div>
+        </div>
+
+        <div class="row time-row">
+          <label class="field">
+            End Time T
+            <input id="stopTimeInput" type="number" step="any" min="0.01">
+          </label>
+          <label class="field">
+            Time Step dt
+            <input id="dtInput" type="number" step="any" min="0.0001">
+          </label>
+          <button id="integratorBtn">Velocity Verlet</button>
+        </div>
+
+        <div class="row action-row">
+          <button id="startBtn">Start</button>
+          <button id="resetBtn">Reset</button>
+          <button id="themeBtn">Theme: Dark</button>
+          <div id="status" class="status">Idle</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel canvas-wrap">
+      <canvas id="simCanvas"></canvas>
+    </section>
+
+    <footer class="footer">
+      <span>Gravity model: normalized Newtonian gravity with softening.</span>
+      <span>Single-file demo built with HTML/CSS/JavaScript.</span>
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const G = 1.0;
+      const EPS = 0.02;
+      const DEFAULT_DT = 0.01;
+      const SUB_STEPS = 3;
+      const TRAIL_MAX = 1500;
+      const COLORS = ["#ff7a7a", "#7ad7ff", "#ffe47a"];
+      const INTEGRATORS = [
+        { id: "verlet", label: "Velocity Verlet" },
+        { id: "rk4", label: "RK4" }
+      ];
+
+      const presetDefs = [
+        {
+          name: "Lagrange Equilateral Orbit (Near-Periodic)",
+          endTime: 120,
+          dt: 0.006,
+          integrator: "rk4",
+          bodies: [
+            { m: 1.0, r: 0.05, x: 0.0, y: 1.0, vx: -0.75984, vy: 0.0 },
+            { m: 1.0, r: 0.05, x: -0.8660254, y: -0.5, vx: 0.37992, vy: -0.65804 },
+            { m: 1.0, r: 0.05, x: 0.8660254, y: -0.5, vx: 0.37992, vy: 0.65804 }
+          ]
+        },
+        {
+          name: "Figure-Eight (Classic 3-Body Solution)",
+          endTime: 80,
+          dt: 0.006,
+          integrator: "rk4",
+          bodies: [
+            { m: 1.0, r: 0.045, x: -0.97000436, y: 0.24308753, vx: 0.466203685, vy: 0.43236573 },
+            { m: 1.0, r: 0.045, x: 0.97000436, y: -0.24308753, vx: 0.466203685, vy: 0.43236573 },
+            { m: 1.0, r: 0.045, x: 0.0, y: 0.0, vx: -0.93240737, vy: -0.86473146 }
+          ]
+        },
+        {
+          name: "High-Speed Scattering",
+          endTime: 22,
+          dt: 0.008,
+          integrator: "rk4",
+          bodies: [
+            { m: 1.2, r: 0.06, x: -1.5, y: -0.2, vx: 0.0, vy: 0.95 },
+            { m: 0.8, r: 0.05, x: 1.6, y: 0.1, vx: -0.2, vy: -0.85 },
+            { m: 1.0, r: 0.055, x: 0.0, y: 1.6, vx: 0.72, vy: 0.0 }
+          ]
+        },
+        {
+          name: "Close-Encounter Chaos (No Instant Collision)",
+          endTime: 70,
+          dt: 0.006,
+          integrator: "rk4",
+          bodies: [
+            { m: 1.1, r: 0.040, x: -1.45, y: -0.25, vx: 0.34, vy: 0.62 },
+            { m: 1.0, r: 0.038, x: 1.40, y: 0.18,  vx: -0.36, vy: -0.56 },
+            { m: 0.9, r: 0.036, x: 0.10, y: 1.55,  vx: -0.05, vy: -0.18 }
+          ]
+        },
+        {
+          name: "Mass-Imbalanced Multi-Scale Orbit",
+          endTime: 120,
+          dt: 0.007,
+          integrator: "rk4",
+          bodies: [
+            { m: 3.5, r: 0.055, x: 0.0,  y: 0.0,  vx: 0.0,  vy: 0.0 },
+            { m: 0.6, r: 0.030, x: 2.25, y: 0.0,  vx: 0.0,  vy: 1.24 },
+            { m: 0.4, r: 0.028, x: -3.20, y: 0.0, vx: 0.0,  vy: -0.98 }
+          ]
+        },
+        {
+          name: "Binary Pair + Flyby Body",
+          endTime: 55,
+          dt: 0.007,
+          integrator: "rk4",
+          bodies: [
+            { m: 1.4, r: 0.06, x: -0.6, y: 0.0, vx: 0.0, vy: -0.75 },
+            { m: 1.3, r: 0.06, x: 0.6, y: 0.0, vx: 0.0, vy: 0.81 },
+            { m: 0.25, r: 0.035, x: -2.6, y: 1.2, vx: 1.05, vy: -0.45 }
+          ]
+        },
+        {
+          name: "Slow Near-Periodic Perturbation (Long Run)",
+          endTime: 220,
+          dt: 0.005,
+          integrator: "rk4",
+          bodies: [
+            { m: 1.00, r: 0.012, x: 0.00,      y: 1.05,    vx: -0.70565, vy: 0.00800 },
+            { m: 0.97, r: 0.012, x: -0.90933,  y: -0.525,  vx: 0.35783,  vy: -0.61972 },
+            { m: 1.03, r: 0.012, x: 0.90933,   y: -0.525,  vx: 0.34782,  vy: 0.60350 }
+          ]
+        }
+      ];
+
+      const bodyFormGrid = document.getElementById("bodyFormGrid");
+      const presetSelect = document.getElementById("presetSelect");
+      const stopTimeInput = document.getElementById("stopTimeInput");
+      const dtInput = document.getElementById("dtInput");
+      const integratorBtn = document.getElementById("integratorBtn");
+      const startBtn = document.getElementById("startBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const themeBtn = document.getElementById("themeBtn");
+      const statusEl = document.getElementById("status");
+
+      const canvas = document.getElementById("simCanvas");
+      const ctx = canvas.getContext("2d");
+
+      let rafId = null;
+      let running = false;
+      let state = null;
+      let defaultFormValues = null;
+      let currentIntegrator = "verlet";
+      let camera = {
+        cx: 0,
+        cy: 0,
+        halfRange: 3
+      };
+      let themeMode = "light";
+
+      function setStatus(text, type) {
+        statusEl.textContent = text;
+        statusEl.className = "status";
+        if (type === "ok") statusEl.classList.add("ok");
+        if (type === "err") statusEl.classList.add("err");
+      }
+
+      function makeBodyCard(idx) {
+        const label = String.fromCharCode(65 + idx);
+        const color = COLORS[idx];
+        const card = document.createElement("div");
+        card.className = "body-card";
+        card.innerHTML = `
+          <h3 style="color:${color}">Body ${label}</h3>
+          <div class="body-fields">
+            ${makeField(idx, "m", "Mass m")}
+            ${makeField(idx, "r", "Radius r")}
+            ${makeField(idx, "x", "Initial x")}
+            ${makeField(idx, "y", "Initial y")}
+            ${makeField(idx, "vx", "Initial vx")}
+            ${makeField(idx, "vy", "Initial vy")}
+          </div>
+        `;
+        return card;
+      }
+
+      function makeField(i, key, label) {
+        return `<label class="field">${label}<input data-body="${i}" data-key="${key}" type="number" step="any"></label>`;
+      }
+
+      function populatePresetSelect() {
+        presetDefs.forEach((p, idx) => {
+          const op = document.createElement("option");
+          op.value = String(idx);
+          op.textContent = p.name;
+          presetSelect.appendChild(op);
+        });
+      }
+
+      function applyPreset(idx) {
+        const p = presetDefs[idx];
+        if (!p) return;
+        p.bodies.forEach((b, i) => {
+          setInput(i, "m", b.m);
+          setInput(i, "r", b.r);
+          setInput(i, "x", b.x);
+          setInput(i, "y", b.y);
+          setInput(i, "vx", b.vx);
+          setInput(i, "vy", b.vy);
+        });
+        stopTimeInput.value = String(p.endTime ?? 30);
+        dtInput.value = String(p.dt ?? DEFAULT_DT);
+        setIntegrator(p.integrator || "verlet");
+      }
+
+      function setIntegrator(id) {
+        const found = INTEGRATORS.find((it) => it.id === id) || INTEGRATORS[0];
+        currentIntegrator = found.id;
+        integratorBtn.textContent = found.label;
+      }
+
+      function toggleIntegrator() {
+        const idx = INTEGRATORS.findIndex((it) => it.id === currentIntegrator);
+        const next = INTEGRATORS[(idx + 1) % INTEGRATORS.length];
+        setIntegrator(next.id);
+        if (running && state) state.integrator = next.id;
+        if (!running) setStatus(`Integrator switched to ${next.label}`, "");
+      }
+
+      function setInput(i, key, value) {
+        const el = bodyFormGrid.querySelector(`input[data-body="${i}"][data-key="${key}"]`);
+        if (el) el.value = String(value);
+      }
+
+      function readInput(i, key) {
+        const el = bodyFormGrid.querySelector(`input[data-body="${i}"][data-key="${key}"]`);
+        return Number(el ? el.value : NaN);
+      }
+
+      function validateAndBuildBodies() {
+        const bodies = [];
+        for (let i = 0; i < 3; i++) {
+          const m = readInput(i, "m");
+          const r = readInput(i, "r");
+          const x = readInput(i, "x");
+          const y = readInput(i, "y");
+          const vx = readInput(i, "vx");
+          const vy = readInput(i, "vy");
+          const list = [m, r, x, y, vx, vy];
+          const valid = list.every((v) => Number.isFinite(v));
+          if (!valid) {
+            throw new Error(`Body ${i + 1} has invalid numbers`);
+          }
+          if (m <= 0) throw new Error(`Body ${i + 1} mass must be > 0`);
+          if (r <= 0) throw new Error(`Body ${i + 1} radius must be > 0`);
+          bodies.push({
+            m, r,
+            pos: { x, y },
+            vel: { x: vx, y: vy },
+            acc: { x: 0, y: 0 },
+            trail: []
+          });
+        }
+        return bodies;
+      }
+
+      function readStopTime() {
+        const t = Number(stopTimeInput.value);
+        if (!Number.isFinite(t) || t <= 0) {
+          throw new Error("End time T must be > 0");
+        }
+        return t;
+      }
+
+      function readDt() {
+        const dt = Number(dtInput.value);
+        if (!Number.isFinite(dt) || dt <= 0) {
+          throw new Error("Time step dt must be > 0");
+        }
+        if (dt > 0.05) {
+          throw new Error("Time step dt is too large; recommended <= 0.05");
+        }
+        return dt;
+      }
+
+      function computeAccelerations(bodies) {
+        const n = bodies.length;
+        const accs = Array.from({ length: n }, () => ({ x: 0, y: 0 }));
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            const dx = bodies[j].pos.x - bodies[i].pos.x;
+            const dy = bodies[j].pos.y - bodies[i].pos.y;
+            const dist2 = dx * dx + dy * dy + EPS * EPS;
+            const dist = Math.sqrt(dist2);
+            const invDist3 = 1 / (dist2 * dist);
+            const aOnI = G * bodies[j].m * invDist3;
+            const aOnJ = G * bodies[i].m * invDist3;
+            accs[i].x += aOnI * dx;
+            accs[i].y += aOnI * dy;
+            accs[j].x -= aOnJ * dx;
+            accs[j].y -= aOnJ * dy;
+          }
+        }
+        return accs;
+      }
+
+      function checkCollision(bodies) {
+        for (let i = 0; i < bodies.length; i++) {
+          for (let j = i + 1; j < bodies.length; j++) {
+            const dx = bodies[j].pos.x - bodies[i].pos.x;
+            const dy = bodies[j].pos.y - bodies[i].pos.y;
+            const d2 = dx * dx + dy * dy;
+            const rs = bodies[i].r + bodies[j].r;
+            if (d2 <= rs * rs) return [i, j];
+          }
+        }
+        return null;
+      }
+
+      function stepVerlet(dt) {
+        const b = state.bodies;
+        const oldAcc = b.map((it) => ({ x: it.acc.x, y: it.acc.y }));
+        for (let i = 0; i < b.length; i++) {
+          b[i].pos.x += b[i].vel.x * dt + 0.5 * oldAcc[i].x * dt * dt;
+          b[i].pos.y += b[i].vel.y * dt + 0.5 * oldAcc[i].y * dt * dt;
+        }
+        const newAcc = computeAccelerations(b);
+        for (let i = 0; i < b.length; i++) {
+          b[i].vel.x += 0.5 * (oldAcc[i].x + newAcc[i].x) * dt;
+          b[i].vel.y += 0.5 * (oldAcc[i].y + newAcc[i].y) * dt;
+          b[i].acc = newAcc[i];
+          pushTrail(b[i], b[i].pos.x, b[i].pos.y);
+        }
+      }
+
+      function computeAccelerationsFromPositions(positions, masses) {
+        const n = positions.length;
+        const accs = Array.from({ length: n }, () => ({ x: 0, y: 0 }));
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            const dx = positions[j].x - positions[i].x;
+            const dy = positions[j].y - positions[i].y;
+            const dist2 = dx * dx + dy * dy + EPS * EPS;
+            const dist = Math.sqrt(dist2);
+            const invDist3 = 1 / (dist2 * dist);
+            const aOnI = G * masses[j] * invDist3;
+            const aOnJ = G * masses[i] * invDist3;
+            accs[i].x += aOnI * dx;
+            accs[i].y += aOnI * dy;
+            accs[j].x -= aOnJ * dx;
+            accs[j].y -= aOnJ * dy;
+          }
+        }
+        return accs;
+      }
+
+      function stepRK4(dt) {
+        const b = state.bodies;
+        const n = b.length;
+        const masses = b.map((it) => it.m);
+        const x0 = b.map((it) => ({ x: it.pos.x, y: it.pos.y }));
+        const v0 = b.map((it) => ({ x: it.vel.x, y: it.vel.y }));
+
+        const a1 = computeAccelerationsFromPositions(x0, masses);
+        const k1x = v0;
+        const k1v = a1;
+
+        const x2 = Array.from({ length: n }, (_, i) => ({
+          x: x0[i].x + 0.5 * dt * k1x[i].x,
+          y: x0[i].y + 0.5 * dt * k1x[i].y
+        }));
+        const v2 = Array.from({ length: n }, (_, i) => ({
+          x: v0[i].x + 0.5 * dt * k1v[i].x,
+          y: v0[i].y + 0.5 * dt * k1v[i].y
+        }));
+
+        const a2 = computeAccelerationsFromPositions(x2, masses);
+        const k2x = v2;
+        const k2v = a2;
+
+        const x3 = Array.from({ length: n }, (_, i) => ({
+          x: x0[i].x + 0.5 * dt * k2x[i].x,
+          y: x0[i].y + 0.5 * dt * k2x[i].y
+        }));
+        const v3 = Array.from({ length: n }, (_, i) => ({
+          x: v0[i].x + 0.5 * dt * k2v[i].x,
+          y: v0[i].y + 0.5 * dt * k2v[i].y
+        }));
+
+        const a3 = computeAccelerationsFromPositions(x3, masses);
+        const k3x = v3;
+        const k3v = a3;
+
+        const x4 = Array.from({ length: n }, (_, i) => ({
+          x: x0[i].x + dt * k3x[i].x,
+          y: x0[i].y + dt * k3x[i].y
+        }));
+        const v4 = Array.from({ length: n }, (_, i) => ({
+          x: v0[i].x + dt * k3v[i].x,
+          y: v0[i].y + dt * k3v[i].y
+        }));
+
+        const a4 = computeAccelerationsFromPositions(x4, masses);
+        const k4x = v4;
+        const k4v = a4;
+
+        for (let i = 0; i < n; i++) {
+          b[i].pos.x = x0[i].x + (dt / 6) * (k1x[i].x + 2 * k2x[i].x + 2 * k3x[i].x + k4x[i].x);
+          b[i].pos.y = x0[i].y + (dt / 6) * (k1x[i].y + 2 * k2x[i].y + 2 * k3x[i].y + k4x[i].y);
+          b[i].vel.x = v0[i].x + (dt / 6) * (k1v[i].x + 2 * k2v[i].x + 2 * k3v[i].x + k4v[i].x);
+          b[i].vel.y = v0[i].y + (dt / 6) * (k1v[i].y + 2 * k2v[i].y + 2 * k3v[i].y + k4v[i].y);
+          pushTrail(b[i], b[i].pos.x, b[i].pos.y);
+        }
+
+        const newAcc = computeAccelerations(b);
+        for (let i = 0; i < n; i++) b[i].acc = newAcc[i];
+      }
+
+      function pushTrail(body, x, y) {
+        body.trail.push({ x, y });
+        if (body.trail.length > TRAIL_MAX) body.trail.shift();
+      }
+
+      function recomputeCameraTarget() {
+        const points = [];
+        for (const body of state.bodies) {
+          points.push(body.pos);
+          for (const p of body.trail) points.push(p);
+        }
+        if (!points.length) return;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const p of points) {
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+        }
+        const cx = (minX + maxX) * 0.5;
+        const cy = (minY + maxY) * 0.5;
+        const spanX = maxX - minX;
+        const spanY = maxY - minY;
+        const margin = 1.25;
+        const targetHalf = Math.max(1.5, Math.max(spanX, spanY) * 0.5 * margin);
+
+        camera.cx = lerp(camera.cx, cx, 0.06);
+        camera.cy = lerp(camera.cy, cy, 0.06);
+        camera.halfRange = lerp(camera.halfRange, targetHalf, 0.08);
+      }
+
+      function lerp(a, b, t) { return a + (b - a) * t; }
+
+      function worldToScreen(x, y) {
+        const w = canvas.width;
+        const h = canvas.height;
+        const halfPx = Math.min(w, h) * 0.46;
+        const scale = halfPx / camera.halfRange;
+        return {
+          x: (x - camera.cx) * scale + w * 0.5,
+          y: (y - camera.cy) * scale + h * 0.5,
+          scale
+        };
+      }
+
+      function render() {
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        drawGrid();
+        if (!state || !state.bodies) {
+          drawHudTime(0);
+          return;
+        }
+
+        for (let i = 0; i < state.bodies.length; i++) {
+          const body = state.bodies[i];
+          const c = COLORS[i];
+          if (body.trail.length > 1) {
+            ctx.beginPath();
+            for (let k = 0; k < body.trail.length; k++) {
+              const sp = worldToScreen(body.trail[k].x, body.trail[k].y);
+              if (k === 0) ctx.moveTo(sp.x, sp.y);
+              else ctx.lineTo(sp.x, sp.y);
+            }
+            ctx.strokeStyle = c + "99";
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+          }
+        }
+
+        for (let i = 0; i < state.bodies.length; i++) {
+          const body = state.bodies[i];
+          const sp = worldToScreen(body.pos.x, body.pos.y);
+          const pxRadius = Math.max(2, body.r * sp.scale);
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, pxRadius, 0, Math.PI * 2);
+          ctx.fillStyle = COLORS[i];
+          ctx.fill();
+          ctx.strokeStyle = "#ffffffcc";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        drawHudTime(state.simTime);
+      }
+
+      function drawHudTime(simTime) {
+        const t = Number.isFinite(simTime) ? simTime : 0;
+        const text = `t = ${t.toFixed(2)}`;
+        ctx.save();
+        ctx.font = "bold 16px Segoe UI";
+        ctx.textBaseline = "top";
+        const css = getComputedStyle(document.body);
+        ctx.fillStyle = css.getPropertyValue("--hud-text").trim() || "#dbe7ff";
+        ctx.fillText(text, 14, 12);
+        ctx.restore();
+      }
+
+      function setConfigDisabled(disabled) {
+        presetSelect.disabled = disabled;
+        stopTimeInput.disabled = disabled;
+        dtInput.disabled = disabled;
+        integratorBtn.disabled = disabled;
+        const cfgInputs = bodyFormGrid.querySelectorAll("input");
+        cfgInputs.forEach((el) => { el.disabled = disabled; });
+      }
+
+      function drawGrid() {
+        const w = canvas.width;
+        const h = canvas.height;
+        const css = getComputedStyle(document.body);
+        const canvasBg = css.getPropertyValue("--canvas-bg").trim() || "#050a14";
+        const gridColor = css.getPropertyValue("--canvas-grid").trim() || "#1a2842";
+        ctx.fillStyle = canvasBg;
+        ctx.fillRect(0, 0, w, h);
+
+        const spacing = 60;
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 0; x <= w; x += spacing) {
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, h);
+        }
+        for (let y = 0; y <= h; y += spacing) {
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+        }
+        ctx.stroke();
+      }
+
+      function stopSimulation(msg, isError) {
+        running = false;
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        setStatus(msg, isError ? "err" : "ok");
+        startBtn.disabled = false;
+        setConfigDisabled(false);
+      }
+
+      function animate() {
+        const dt = state.dt;
+        for (let i = 0; i < SUB_STEPS; i++) {
+          if (state.integrator === "rk4") stepRK4(dt);
+          else stepVerlet(dt);
+          state.simTime += dt;
+          const hit = checkCollision(state.bodies);
+          if (hit) {
+            render();
+            stopSimulation(`Collision stop: Body ${hit[0] + 1} and Body ${hit[1] + 1}`, true);
+            return;
+          }
+          if (state.simTime >= state.endTime) {
+            render();
+            stopSimulation(`Reached end time T=${state.endTime.toFixed(2)}. Simulation finished.`, false);
+            return;
+          }
+        }
+
+        recomputeCameraTarget();
+        render();
+
+        if (running) rafId = requestAnimationFrame(animate);
+      }
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const w = Math.max(1, Math.floor(rect.width * dpr));
+        const h = Math.max(1, Math.floor(rect.height * dpr));
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        render();
+      }
+
+      function buildInitialState() {
+        const bodies = validateAndBuildBodies();
+        const endTime = readStopTime();
+        const dt = readDt();
+        const acc = computeAccelerations(bodies);
+        for (let i = 0; i < bodies.length; i++) {
+          bodies[i].acc = acc[i];
+          pushTrail(bodies[i], bodies[i].pos.x, bodies[i].pos.y);
+        }
+        state = {
+          bodies,
+          simTime: 0,
+          endTime,
+          dt,
+          integrator: currentIntegrator
+        };
+        camera = { cx: 0, cy: 0, halfRange: 3 };
+        recomputeCameraTarget();
+      }
+
+      function captureFormValues() {
+        const bodies = [];
+        for (let i = 0; i < 3; i++) {
+          bodies.push({
+            m: readInput(i, "m"),
+            r: readInput(i, "r"),
+            x: readInput(i, "x"),
+            y: readInput(i, "y"),
+            vx: readInput(i, "vx"),
+            vy: readInput(i, "vy")
+          });
+        }
+        return {
+          bodies,
+          endTime: Number(stopTimeInput.value),
+          dt: Number(dtInput.value),
+          integrator: currentIntegrator
+        };
+      }
+
+      function restoreFormValues(values) {
+        if (!values) return;
+        values.bodies.forEach((b, i) => {
+          setInput(i, "m", b.m);
+          setInput(i, "r", b.r);
+          setInput(i, "x", b.x);
+          setInput(i, "y", b.y);
+          setInput(i, "vx", b.vx);
+          setInput(i, "vy", b.vy);
+        });
+        stopTimeInput.value = String(values.endTime);
+        dtInput.value = String(values.dt);
+        setIntegrator(values.integrator || "verlet");
+      }
+
+      function onStart() {
+        try {
+          buildInitialState();
+        } catch (err) {
+          stopSimulation(`Parameter error: ${err.message}`, true);
+          return;
+        }
+        if (running) return;
+        running = true;
+        startBtn.disabled = true;
+        setConfigDisabled(true);
+        setStatus(`Running | ${INTEGRATORS.find((it) => it.id === state.integrator).label} | dt=${state.dt} | T=${state.endTime}`, "ok");
+        render();
+        rafId = requestAnimationFrame(animate);
+      }
+
+      function onReset() {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        running = false;
+        startBtn.disabled = false;
+        setConfigDisabled(false);
+        restoreFormValues(defaultFormValues);
+        try {
+          buildInitialState();
+          setStatus("Reset to default parameters", "");
+        } catch (_) {
+          setStatus("Invalid parameters after reset", "err");
+        }
+        render();
+      }
+
+      function applyTheme(mode) {
+        themeMode = mode === "light" ? "light" : "dark";
+        document.body.classList.toggle("light", themeMode === "light");
+        themeBtn.textContent = `Theme: ${themeMode === "light" ? "Light" : "Dark"}`;
+        try { localStorage.setItem("three-body-theme", themeMode); } catch (_) {}
+        render();
+      }
+
+      function toggleTheme() {
+        applyTheme(themeMode === "dark" ? "light" : "dark");
+      }
+
+      function init() {
+        for (let i = 0; i < 3; i++) bodyFormGrid.appendChild(makeBodyCard(i));
+        populatePresetSelect();
+        presetSelect.addEventListener("change", () => {
+          applyPreset(Number(presetSelect.value));
+          setStatus(`Preset loaded: ${presetDefs[Number(presetSelect.value)].name}`, "");
+          try {
+            buildInitialState();
+            render();
+          } catch (_) {}
+        });
+
+        startBtn.addEventListener("click", onStart);
+        resetBtn.addEventListener("click", onReset);
+        integratorBtn.addEventListener("click", toggleIntegrator);
+        themeBtn.addEventListener("click", toggleTheme);
+
+        presetSelect.value = "0";
+        applyPreset(0);
+        defaultFormValues = captureFormValues();
+        setConfigDisabled(false);
+        try {
+          const saved = localStorage.getItem("three-body-theme");
+          applyTheme(saved || "light");
+        } catch (_) {
+          applyTheme("light");
+        }
+
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
+        buildInitialState();
+        render();
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>

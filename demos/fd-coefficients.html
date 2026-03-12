@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Finite Difference Coefficients Generator</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <style>
+        :root {
+            --primary: #1a3958;
+            --accent: #3f77aa;
+            --bg: #f0f4fa;
+            --card-bg: #ffffff;
+            --text-main: #0f2740;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            /* 移动端顶部对齐 */
+            padding: 1rem;
+        }
+
+        .card {
+            max-width: 1000px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            /* 紧凑布局 */
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            color: var(--text-main);
+            margin: 0;
+        }
+
+        .lang-toggle-btn {
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 15px;
+            border: 2px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            cursor: pointer;
+        }
+
+        .intro {
+            background: #f8fafc;
+            border-left: 4px solid var(--primary);
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.2rem;
+            color: #475569;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .panel {
+            background: #f9fbfe;
+            border: 1px solid #e1e8f0;
+            border-radius: 15px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .spin-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid #cbddec;
+            background: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .number-input {
+            width: 45px;
+            height: 34px;
+            text-align: center;
+            border: 2px solid #cbddec;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .coord-input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #cbddec;
+            border-radius: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .viz-container {
+            margin-top: 1rem;
+            background: #fff;
+            border: 1px solid #e1e8f0;
+            border-radius: 10px;
+            padding: 0.5rem;
+        }
+
+        #gridCanvas {
+            width: 100%;
+            height: 100px;
+        }
+
+        .result-container {
+            background: #0b1f31;
+            border-radius: 18px;
+            padding: 1.2rem;
+            color: white;
+            margin-top: 1rem;
+        }
+
+        .formula-display {
+            background: #112c42;
+            padding: 1.5rem 0.5rem;
+            border-radius: 12px;
+            display: block;
+            text-align: center;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .formula-display .katex-display {
+            display: inline-block;
+            margin: 0;
+            min-width: 0;
+        }
+
+        .formula-display .katex .frac-line {
+            border-bottom-width: 2px !important;
+        }
+
+        .formula-display::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .formula-display::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 10px;
+        }
+
+        .coeff-table {
+            width: 100%;
+            margin-top: 1rem;
+            border-collapse: collapse;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        .coeff-table th {
+            text-align: left;
+            color: var(--accent);
+            border-bottom: 1px solid #2c5982;
+            padding: 5px;
+        }
+
+        .coeff-table td {
+            padding: 8px 5px;
+            border-bottom: 1px solid #153249;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 0.5rem;
+            }
+
+            .card {
+                padding: 1rem;
+                border-radius: 15px;
+            }
+
+            h1 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <header>
+            <h1 id="mainTitle"></h1>
+            <button onclick="toggleLang()" class="lang-toggle-btn" id="langBtn">English</button>
+        </header>
+
+        <div class="intro" id="introText">
+        </div>
+
+        <div class="panel">
+            <div class="grid-layout">
+                <div>
+                    <label id="lblK"></label>
+                    <div class="input-group">
+                        <button class="spin-btn" onclick="adjustOrder(-1)">-</button>
+                        <input type="number" id="order" value="2" class="number-input" readonly>
+                        <button class="spin-btn" onclick="adjustOrder(1)">+</button>
+                    </div>
+                </div>
+                <div>
+                    <label id="lblL"></label>
+                    <div class="input-group">
+                        <button class="spin-btn" onclick="adjustPoints('leftPts', -1)">-</button>
+                        <input type="number" id="leftPts" value="1" class="number-input" readonly>
+                        <button class="spin-btn" onclick="adjustPoints('leftPts', 1)">+</button>
+                    </div>
+                </div>
+                <div>
+                    <label id="lblR"></label>
+                    <div class="input-group">
+                        <button class="spin-btn" onclick="adjustPoints('rightPts', -1)">-</button>
+                        <input type="number" id="rightPts" value="1" class="number-input" readonly>
+                        <button class="spin-btn" onclick="adjustPoints('rightPts', 1)">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="coord-area">
+                <label id="lblPts"></label>
+                <input type="text" id="points" value="-1 0 1" class="coord-input" spellcheck="false">
+                <div class="hint-text" id="hintText">
+                </div>
+            </div>
+
+            <div class="viz-container">
+                <canvas id="gridCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="result-container">
+            <div class="formula-display" id="formula">计算中...</div>
+            <div id="coeff_list"></div>
+        </div>
+    </div>
+
+    <script>
+        const i18n = {
+            zh: {
+                title: "有限差分系数生成器",
+                intro: "基于 Taylor 展开和 Vandermonde 矩阵求解，提供任意模板下的各阶差商公式。支持非均匀网格（小数或分数输入），所有系数均以 <b>符号分数形式</b> 处理。",
+                labelK: "导数阶数 k",
+                labelL: "左边点数 (L)",
+                labelR: "右边点数 (R)",
+                labelPts: "相对坐标列表",
+                hint: "💡 直接编辑列表或使用上方 L/R 按钮生成均匀网格。",
+                calc: "计算中...",
+                errPoints: (k, n) => `阶数 ${k} 需要至少 ${k + 1} 个点，当前有 ${n} 个`,
+                tableOffset: "偏置 (Offset)",
+                tableCoeff: "系数 (Coefficient)",
+                langBtn: "English"
+            },
+            en: {
+                title: "FD Coefficients Generator",
+                intro: "Generates finite difference schemes for arbitrary stencils using Taylor expansion. Supports non-uniform grids; all coefficients are handled as <b>symbolic fractions</b>.",
+                labelK: "Derivative Order k",
+                labelL: "Left Points (L)",
+                labelR: "Right Points (R)",
+                labelPts: "Relative Coordinates",
+                hint: "💡 Edit list directly or use L/R buttons for uniform grids.",
+                calc: "Calculating...",
+                errPoints: (k, n) => `Order ${k} requires at least ${k + 1} points, but only ${n} provided.`,
+                tableOffset: "Offset",
+                tableCoeff: "Coefficient",
+                langBtn: "中文"
+            }
+        };
+
+        function toggleLang() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            applyLang();
+            update();
+        }
+
+        function applyLang() {
+            const t = i18n[currentLang];
+            document.getElementById('mainTitle').innerText = t.title;
+            document.getElementById('introText').innerHTML = t.intro;
+            document.getElementById('lblK').innerText = t.labelK;
+            document.getElementById('lblL').innerText = t.labelL;
+            document.getElementById('lblR').innerText = t.labelR;
+            document.getElementById('lblPts').innerText = t.labelPts;
+            document.getElementById('hintText').innerText = t.hint;
+            document.getElementById('langBtn').innerText = t.langBtn;
+        }
+
+        class Fraction {
+            constructor(n, d = 1n) {
+                if (typeof n === 'string') {
+                    n = n.trim();
+                    if (n.includes('/')) {
+                        let [numStr, denStr] = n.split('/');
+                        n = BigInt(numStr);
+                        d = BigInt(denStr);
+                    } else if (n.includes('.')) {
+                        let parts = n.split('.');
+                        let decLen = BigInt(parts[1].length);
+                        d = 10n ** decLen;
+                        n = BigInt(n.replace('.', ''));
+                    } else {
+                        n = BigInt(n);
+                        d = BigInt(d);
+                    }
+                } else if (typeof n === 'number') {
+                    if (!Number.isInteger(n)) return new Fraction(n.toString());
+                    n = BigInt(n);
+                    d = BigInt(d);
+                } else {
+                    n = BigInt(n);
+                    d = BigInt(d);
+                }
+
+                if (d === 0n) throw new Error("Division by zero");
+                let common = this._gcd(this._abs(n), this._abs(d));
+                this.n = (d < 0n ? -n : n) / common;
+                this.d = (d < 0n ? -d : d) / common;
+            }
+
+            _gcd(a, b) { return b === 0n ? a : this._gcd(b, a % b); }
+            _abs(a) { return a < 0n ? -a : a; }
+            add(o) { return new Fraction(this.n * o.d + o.n * this.d, this.d * o.d); }
+            sub(o) { return new Fraction(this.n * o.d - o.n * this.d, this.d * o.d); }
+            mul(o) { return new Fraction(this.n * o.n, this.d * o.d); }
+            div(o) { return new Fraction(this.n * o.d, this.d * o.n); }
+            pow(p) {
+                let r = new Fraction(1n);
+                for (let i = 0; i < p; i++) r = r.mul(this);
+                return r;
+            }
+            isZero() { return this.n === 0n; }
+            toValue() { return Number(this.n) / Number(this.d); }
+            toLatex() {
+                if (this.d === 1n) return this.n.toString();
+                const absN = this._abs(this.n);
+                return `${this.n < 0n ? '-' : ''}\\frac{${absN}}{${this.d}}`;
+            }
+
+            toString() { return this.d === 1n ? this.n.toString() : `${this.n}/${this.d}`; }
+        }
+
+        function solve(A, b) {
+            let n = A.length;
+            for (let i = 0; i < n; i++) {
+                if (A[i][i].isZero()) {
+                    for (let j = i + 1; j < n; j++) {
+                        if (!A[j][i].isZero()) {
+                            [A[i], A[j]] = [A[j], A[i]];
+                            [b[i], b[j]] = [b[j], b[i]];
+                            break;
+                        }
+                    }
+                }
+                if (A[i][i].isZero()) throw new Error("Singular Matrix (Duplicate points)");
+                for (let k = i + 1; k < n; k++) {
+                    let f = A[k][i].div(A[i][i]);
+                    for (let j = i; j < n; j++) A[k][j] = A[k][j].sub(f.mul(A[i][j]));
+                    b[k] = b[k].sub(f.mul(b[i]));
+                }
+            }
+            let x = new Array(n);
+            for (let i = n - 1; i >= 0; i--) {
+                let s = new Fraction(0n);
+                for (let j = i + 1; j < n; j++) s = s.add(A[i][j].mul(x[j]));
+                x[i] = b[i].sub(s).div(A[i][i]);
+            }
+            return x;
+        }
+
+        let currentLang = 'en';
+
+        function toggleLang() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            applyLang();
+            update();
+        }
+
+        function applyLang() {
+            const t = i18n[currentLang];
+            document.getElementById('mainTitle').innerText = t.title;
+            document.getElementById('introText').innerHTML = t.intro;
+            document.getElementById('lblK').innerText = t.labelK;
+            document.getElementById('lblL').innerText = t.labelL;
+            document.getElementById('lblR').innerText = t.labelR;
+            document.getElementById('lblPts').innerText = t.labelPts;
+            document.getElementById('hintText').innerText = t.hint;
+            document.getElementById('langBtn').innerText = t.langBtn;
+        }
+
+        function adjustOrder(delta) {
+            let el = document.getElementById('order');
+            let val = parseInt(el.value) + delta;
+            if (val < 1) val = 1;
+            if (val > 10) val = 10;
+            el.value = val;
+            update();
+        }
+
+        function adjustPoints(id, delta) {
+            let el = document.getElementById(id);
+            let val = parseInt(el.value) + delta;
+            if (val < 0) val = 0;
+            if (val > 12) val = 12;
+            el.value = val;
+
+            let L = parseInt(document.getElementById('leftPts').value);
+            let R = parseInt(document.getElementById('rightPts').value);
+            let pts = [];
+            for (let i = -L; i <= R; i++) pts.push(i);
+            document.getElementById('points').value = pts.join(' ');
+            update();
+        }
+
+        function drawGrid(ptsFrac) {
+            const canvas = document.getElementById('gridCanvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth * 2;
+            const h = canvas.height = canvas.offsetHeight * 2;
+            ctx.scale(2, 2);
+            const sw = w / 2, sh = h / 2;
+            ctx.clearRect(0, 0, sw, sh);
+
+            const ptsNum = ptsFrac.map(f => f.toValue());
+            const minP = Math.min(...ptsNum, -1, 0);
+            const maxP = Math.max(...ptsNum, 1, 0);
+            const range = maxP - minP || 1;
+            const padding = 70;
+            const scale = (sw - padding * 2) / range;
+            const getX = (v) => padding + (v - minP) * scale;
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#cbddec';
+            ctx.lineWidth = 2;
+            ctx.moveTo(15, sh / 2);
+            ctx.lineTo(sw - 15, sh / 2);
+            ctx.stroke();
+
+            const originExistsInTemplate = ptsNum.some(v => Math.abs(v) < 1e-10);
+
+            const displayPts = [...ptsFrac];
+            if (!originExistsInTemplate) displayPts.push(new Fraction(0n));
+
+            displayPts.forEach(f => {
+                const val = f.toValue();
+                const x = getX(val);
+                const isOrigin = Math.abs(val) < 1e-10;
+                const isTemplate = ptsFrac.some(pf => pf.toValue() === val);
+
+                if (isOrigin) {
+                    ctx.beginPath();
+                    ctx.arc(x, sh / 2, 6, 0, Math.PI * 2);
+                    if (isTemplate) { ctx.fillStyle = '#e63946'; ctx.fill(); }
+                    else { ctx.strokeStyle = '#e63946'; ctx.lineWidth = 2; ctx.stroke(); }
+                } else if (isTemplate) {
+                    ctx.beginPath();
+                    ctx.arc(x, sh / 2, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#3f77aa';
+                    ctx.fill();
+                }
+
+                ctx.fillStyle = isOrigin ? '#e63946' : '#334e68';
+                ctx.font = '600 12px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+
+                let label = isOrigin ? "x" : f.toString();
+                if (!isOrigin && val > 0 && f.toString().charAt(0) !== '+') label = "+" + label;
+
+                ctx.fillText(label, x, sh / 2 + 25);
+            });
+        }
+
+        function update() {
+            const formulaDiv = document.getElementById('formula');
+            const coeffListDiv = document.getElementById('coeff_list');
+
+            try {
+                const k = parseInt(document.getElementById('order').value);
+                const ptsStr = document.getElementById('points').value.trim();
+                const rawPts = ptsStr.split(/\s+/).filter(x => x !== "");
+
+                const ptsFrac = rawPts.map(s => new Fraction(s));
+                const ptsNum = ptsFrac.map(f => Number(f.n) / Number(f.d));
+
+                drawGrid(ptsFrac);
+
+                if (ptsFrac.length < k + 1) throw new Error(i18n[currentLang].errPoints(k, ptsFrac.length));
+
+                let n = ptsFrac.length;
+                let A = [];
+                for (let i = 0; i < n; i++) {
+                    let row = [];
+                    for (let j = 0; j < n; j++) row.push(ptsFrac[j].pow(i));
+                    A.push(row);
+                }
+
+                let fact = 1n;
+                for (let i = 1n; i <= BigInt(k); i++) fact *= i;
+                let b = Array.from({ length: n }, (_, i) => new Fraction(i === k ? fact : 0n));
+
+                const coeffs = solve(A, b);
+
+                let currentOrder = 0;
+                let errorSum = new Fraction(0n);
+                let errorTermCoeff = new Fraction(0n);
+
+                while (currentOrder < n + 10) {
+                    errorSum = new Fraction(0n);
+                    for (let j = 0; j < n; j++) {
+                        errorSum = errorSum.add(coeffs[j].mul(ptsFrac[j].pow(currentOrder)));
+                    }
+                    if (currentOrder > k && !errorSum.isZero()) {
+                        let nFact = 1n;
+                        for (let i = 1n; i <= BigInt(currentOrder); i++) nFact *= i;
+                        errorTermCoeff = errorSum.div(new Fraction(nFact));
+                        break;
+                    }
+                    currentOrder++;
+                }
+
+                if (currentOrder < ptsNum.length) {
+                    throw new Error("Calculation error");
+                }
+                let terms = [];
+                coeffs.forEach((c, i) => {
+                    if (c.isZero()) return;
+                    let p = ptsFrac[i];
+                    let cL = c.toLatex();
+
+                    let pAbs = new Fraction(p.n < 0n ? -p.n : p.n, p.d);
+                    let pL = pAbs.toLatex();
+                    let offsetStr = pL === "1" ? "" : pL;
+
+                    let f = p.isZero() ? "f(x)" : `f\\left(x ${p.n > 0n ? '+' : '-'} ${offsetStr}h\\right)`;
+                    terms.push(cL === "1" ? f : (cL === "-1" ? "-" + f : cL + " " + f));
+                });
+
+                let res = terms[0] || "0";
+                for (let i = 1; i < terms.length; i++) res += (terms[i].startsWith('-') ? " " : " + ") + terms[i];
+
+                let p_order = currentOrder - k;
+                let errStr = "";
+                if (!errorTermCoeff.isZero()) {
+                    let dispErr = new Fraction(-errorTermCoeff.n, errorTermCoeff.d);
+                    let eL = dispErr.toLatex();
+                    eL = (dispErr.n > 0n ? "+" : "") + (eL === "1" ? "" : (eL === "-1" ? "-" : eL));
+                    orderStr = p_order === 1 ? `h` : `h^{${p_order}}`;
+                    errStr = `${eL} ${orderStr} f^{(${currentOrder})}(x) + \\cdots`;
+                }
+
+                let mainFormula = k === 0 ? res : `\\frac{1}{h^{${k === 1 ? '' : k}}} \\Bigg( ${res} \\Bigg)`;
+                katex.render(`f^{(${k})}(x) \\approx ${mainFormula} ${errStr}`, formulaDiv, { displayMode: true });
+
+                let tableHtml = `<table class="coeff-table"><thead><tr><th>${i18n[currentLang].tableOffset}</th> <th>${i18n[currentLang].tableCoeff}</th></tr></thead><tbody>`;
+                coeffs.forEach((c, i) => {
+                    tableHtml += `<tr><td>${ptsFrac[i].toString()}</td><td style="color:${c.isZero() ? '#445' : (c.n < 0n ? '#ff9999' : '#99ffcc')}">${c.toString()}</td></tr>`;
+                });
+                coeffListDiv.innerHTML = tableHtml + `</tbody></table>`;
+                formulaDiv.scrollLeft = 0;
+            } catch (e) {
+                formulaDiv.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+                coeffListDiv.innerHTML = "";
+            }
+        }
+
+        document.getElementById('points').addEventListener('input', update);
+        window.onload = () => { applyLang(); update(); };
+    </script>
+</body>
+
+</html>

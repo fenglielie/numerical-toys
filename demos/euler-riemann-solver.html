@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Euler Exact Riemann Solver</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --bg: #f8f9fa;
+            --panel: #202124;
+            --accent: #e8f0fe;
+        }
+
+        body {
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 20px;
+            background: #f0f2f5;
+            color: #3c4043;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--primary);
+            font-weight: 600;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            background: var(--bg);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #eef0f2;
+        }
+
+        .presets {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #dadce0;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .full-row {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .last-row {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #5f6368;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        input {
+            padding: 8px;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1);
+        }
+
+        .preset-btn {
+            padding: 6px 12px;
+            background: white;
+            color: var(--primary);
+            border: 1px solid #d2e3fc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: 0.2s;
+        }
+
+        .preset-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .calc-btn {
+            padding: 10px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .calc-btn:hover {
+            background: #1765cc;
+        }
+
+        .info-panel {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            background: var(--panel);
+            color: #e8eaed;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 15px;
+        }
+
+        @media (max-width: 500px) {
+            .charts {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-box {
+            background: #fff;
+            border: 1px solid #e8eaed;
+            padding: 10px;
+            border-radius: 8px;
+            height: 280px;
+        }
+
+        #densityCanvas {
+            background: #000;
+            width: 100%;
+            height: 50px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h2>Euler Exact Riemann Solver</h2>
+
+        <div class="controls-grid">
+            <div class="presets">
+                <span style="font-size: 12px; align-self: center; font-weight: bold; margin-right: 5px;">Presets:</span>
+                <button class="preset-btn" onclick="loadPreset('test1')">test1 (Sod)</button>
+                <button class="preset-btn" onclick="loadPreset('test2')">test2</button>
+                <button class="preset-btn" onclick="loadPreset('test3')">test3</button>
+                <button class="preset-btn" onclick="loadPreset('test4')">test4</button>
+                <button class="preset-btn" onclick="loadPreset('test5')">test5</button>
+                <button class="preset-btn" onclick="loadPreset('test6')">test6 (Lax)</button>
+                <button class="preset-btn" onclick="loadPreset('test7')">test7</button>
+            </div>
+
+            <div class="input-group"><label>rho_L (Density)</label><input type="number" id="rho_l" value="1.0"
+                    step="0.1"></div>
+            <div class="input-group"><label>u_L (Velocity)</label><input type="number" id="u_l" value="0.0" step="0.1">
+            </div>
+            <div class="input-group"><label>p_L (Pressure)</label><input type="number" id="p_l" value="1.0" step="0.1">
+            </div>
+
+            <div class="input-group"><label>rho_R (Density)</label><input type="number" id="rho_r" value="0.125"
+                    step="0.01"></div>
+            <div class="input-group"><label>u_R (Velocity)</label><input type="number" id="u_r" value="0.0" step="0.1">
+            </div>
+            <div class="input-group"><label>p_R (Pressure)</label><input type="number" id="p_r" value="0.1" step="0.01">
+            </div>
+
+            <div class="input-group"><label>x_L (Left Bound)</label><input type="number" id="x_l" value="0.0"></div>
+            <div class="input-group"><label>x_c (Interface)</label><input type="number" id="x_c" value="0.5"
+                    step="0.05"></div>
+            <div class="input-group"><label>x_R (Right Bound)</label><input type="number" id="x_r" value="1.0"></div>
+
+            <div class="last-row">
+                <div class="input-group"><label>gamma (γ)</label><input type="number" id="gamma" value="1.4"
+                        step="0.01"></div>
+                <div class="input-group"><label>T (Time)</label><input type="number" id="sim_t" value="0.25"
+                        step="0.01"></div>
+                <button class="calc-btn" onclick="updateSimulation()">Solve & Draw</button>
+            </div>
+        </div>
+
+        <div class="info-panel" id="infoPanel">
+            <div id="waveTypes">// Wave States Loading...</div>
+            <div id="keyData">// Region Metadata Loading...</div>
+        </div>
+
+        <div class="chart-box" style="height: 100px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold;">
+                <span>Density Evolution (Vis)</span>
+                <span style="color:var(--primary)">Phys-Time: <span id="timeVal">0.000</span>s</span>
+            </div>
+            <canvas id="densityCanvas"></canvas>
+        </div>
+
+        <div class="charts">
+            <div class="chart-box"><canvas id="chartRho"></canvas></div>
+            <div class="chart-box"><canvas id="chartU"></canvas></div>
+            <div class="chart-box"><canvas id="chartP"></canvas></div>
+            <div class="chart-box"><canvas id="chartE"></canvas></div>
+        </div>
+
+        <div class="references">
+            <h3>References</h3>
+            <ul>
+                <li><b>Toro, E. F. (2009).</b> <i>Riemann Solvers and Numerical Methods for Fluid Dynamics (Third Edition)</i></li>
+                <li><a href="https://gist.github.com/ketch/08ce0845da0c8f3fa9ff" target="_blank" rel="noopener">Euler_exact_Riemann_solver.ipynb</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const presets = {
+            test1: {
+                preset_name: "test1",
+                rho_l: 1.0,
+                u_l: 0.0,
+                p_l: 1.0,
+                rho_r: 0.125,
+                u_r: 0.0,
+                p_r: 0.1,
+                x_l: 0.0,
+                x_r: 1.0,
+                x_c: 0.5,
+                t: 0.25,
+            },
+            test2: {
+                preset_name: "test2",
+                rho_l: 1.0,
+                u_l: -2.0,
+                p_l: 0.4,
+                rho_r: 1.0,
+                u_r: 2.0,
+                p_r: 0.4,
+                x_l: 0.0,
+                x_r: 1.0,
+                x_c: 0.5,
+                t: 0.15,
+            },
+            test3: {
+                preset_name: "test3",
+                rho_l: 1.0,
+                u_l: 0.0,
+                p_l: 1000.0,
+                rho_r: 1.0,
+                u_r: 0.0,
+                p_r: 0.01,
+                x_l: 0.0,
+                x_r: 1.0,
+                x_c: 0.5,
+                t: 0.012,
+            },
+            test4: {
+                preset_name: "test4",
+                rho_l: 1.0,
+                u_l: 0.0,
+                p_l: 0.01,
+                rho_r: 1.0,
+                u_r: 0.0,
+                p_r: 100.0,
+                x_l: 0.0,
+                x_r: 1.0,
+                x_c: 0.5,
+                t: 0.035,
+            },
+            test5: {
+                preset_name: "test5",
+                rho_l: 5.99924,
+                u_l: 19.5975,
+                p_l: 460.894,
+                rho_r: 5.99242,
+                u_r: -6.19633,
+                p_r: 46.0950,
+                x_l: 0.0,
+                x_r: 1.0,
+                x_c: 0.5,
+                t: 0.035,
+            },
+            test6: {
+                preset_name: "test6",
+                rho_l: 0.445,
+                u_l: 0.698,
+                p_l: 3.528,
+                rho_r: 0.5,
+                u_r: 0.0,
+                p_r: 0.571,
+                x_l: -1.0,
+                x_r: 1.0,
+                x_c: 0.0,
+                t: 0.2,
+            },
+            test7: {
+                preset_name: "test7",
+                rho_l: 1.0,
+                u_l: 3.0,
+                p_l: 1.0,
+                rho_r: 1.0,
+                u_r: -3.0,
+                p_r: 1.0,
+                x_l: -1.0,
+                x_r: 1.0,
+                x_c: 0.0,
+                t: 0.4,
+            }
+        };
+
+        function loadPreset(name) {
+            const p = presets[name];
+            document.getElementById('rho_l').value = p.rho_l;
+            document.getElementById('u_l').value = p.u_l;
+            document.getElementById('p_l').value = p.p_l;
+            document.getElementById('rho_r').value = p.rho_r;
+            document.getElementById('u_r').value = p.u_r;
+            document.getElementById('p_r').value = p.p_r;
+            document.getElementById('x_l').value = p.x_l;
+            document.getElementById('x_c').value = p.x_c;
+            document.getElementById('x_r').value = p.x_r;
+            document.getElementById('gamma').value = 1.4;
+            document.getElementById('sim_t').value = p.t;
+            updateSimulation();
+        }
+
+        class EulerSolver {
+            constructor(rl, ul, pl, rr, ur, pr, g) {
+                this.L = { r: rl, u: ul, p: pl, c: Math.sqrt(g * pl / rl) };
+                this.R = { r: rr, u: ur, p: pr, c: Math.sqrt(g * pr / rr) };
+                this.g = g;
+                this.G1 = (g - 1) / (2 * g); this.G2 = (g + 1) / (2 * g); this.G3 = 2 * g / (g - 1);
+                this.G4 = 2 / (g - 1); this.G5 = 2 / (g + 1); this.G6 = (g - 1) / (g + 1); this.G7 = (g - 1) / 2;
+            }
+            f(p, s) {
+                if (p > s.p) {
+                    let A = this.G5 / s.r, B = this.G6 * s.p;
+                    return (p - s.p) * Math.sqrt(A / (p + B));
+                } else {
+                    return this.G4 * s.c * (Math.pow(p / s.p, this.G1) - 1);
+                }
+            }
+            df(p, s) {
+                if (p > s.p) {
+                    let A = this.G5 / s.r, B = this.G6 * s.p;
+                    return Math.sqrt(A / (p + B)) * (1 - (p - s.p) / (2 * (p + B)));
+                } else {
+                    return (1 / (s.r * s.c)) * Math.pow(p / s.p, -this.G2);
+                }
+            }
+            solve() {
+                let p_star = (this.L.p + this.R.p) / 2;
+                for (let i = 0; i < 50; i++) {
+                    let phi = this.f(p_star, this.L) + this.f(p_star, this.R) + (this.R.u - this.L.u);
+                    let dphi = this.df(p_star, this.L) + this.df(p_star, this.R);
+                    let p_next = p_star - phi / dphi;
+                    if (Math.abs(p_next - p_star) < 1e-12) break;
+                    p_star = Math.max(1e-12, p_next);
+                }
+                let u_star = 0.5 * (this.L.u + this.R.u) + 0.5 * (this.f(p_star, this.R) - this.f(p_star, this.L));
+                return { ps: p_star, us: u_star };
+            }
+            sample(x, xc, t, ps, us) {
+                let xi = (x - xc) / t;
+                let r, u, p;
+                if (xi <= us) {
+                    if (ps > this.L.p) {
+                        let s_l = this.L.u - this.L.c * Math.sqrt(this.G2 * ps / this.L.p + this.G1);
+                        if (xi <= s_l) { r = this.L.r; u = this.L.u; p = this.L.p; }
+                        else { r = this.L.r * (ps / this.L.p + this.G6) / (ps / this.L.p * this.G6 + 1); u = us; p = ps; }
+                    } else {
+                        let sh_l = this.L.u - this.L.c;
+                        let st_l = us - Math.sqrt(this.g * ps / (this.L.r * Math.pow(ps / this.L.p, 1 / this.g)));
+                        if (xi <= sh_l) { r = this.L.r; u = this.L.u; p = this.L.p; }
+                        else if (xi <= st_l) {
+                            u = this.G5 * (this.L.c + this.G7 * this.L.u + xi);
+                            let c = u - xi;
+                            r = this.L.r * Math.pow(c / this.L.c, this.G4);
+                            p = this.L.p * Math.pow(c / this.L.c, this.G3);
+                        } else { r = this.L.r * Math.pow(ps / this.L.p, 1 / this.g); u = us; p = ps; }
+                    }
+                } else {
+                    if (ps > this.R.p) {
+                        let s_r = this.R.u + this.R.c * Math.sqrt(this.G2 * ps / this.R.p + this.G1);
+                        if (xi >= s_r) { r = this.R.r; u = this.R.u; p = this.R.p; }
+                        else { r = this.R.r * (ps / this.R.p + this.G6) / (ps / this.R.p * this.G6 + 1); u = us; p = ps; }
+                    } else {
+                        let sh_r = this.R.u + this.R.c;
+                        let st_r = us + Math.sqrt(this.g * ps / (this.R.r * Math.pow(ps / this.R.p, 1 / this.g)));
+                        if (xi >= sh_r) { r = this.R.r; u = this.R.u; p = this.R.p; }
+                        else if (xi >= st_r) {
+                            u = this.G5 * (-this.R.c + this.G7 * this.R.u + xi);
+                            let c = xi - u;
+                            r = this.R.r * Math.pow(c / this.R.c, this.G4);
+                            p = this.R.p * Math.pow(c / this.R.c, this.G3);
+                        } else { r = this.R.r * Math.pow(ps / this.R.p, 1 / this.g); u = us; p = ps; }
+                    }
+                }
+                return { r, u, p, e: p / ((this.g - 1) * r) };
+            }
+        }
+
+        let charts = {};
+        let animId = null;
+
+        function initCharts() {
+            const ids = { Rho: 'Density', P: 'Pressure', U: 'Velocity', E: 'Internal Energy' };
+            Object.keys(ids).forEach(key => {
+                const ctx = document.getElementById(`chart${key}`).getContext('2d');
+                charts[key] = new Chart(ctx, {
+                    type: 'line',
+                    data: { datasets: [{ data: [], borderColor: '#1a73e8', borderWidth: 2.5, pointRadius: 0 }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, animation: false,
+                        plugins: { title: { display: true, text: ids[key], font: { weight: 'bold' } }, legend: false },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: {
+                                    display: true,
+                                    text: 'Position (x)',
+                                    font: { size: 11, weight: 'bold' }
+                                }
+                            },
+                            y: { ticks: { font: { family: 'monospace' } } }
+                        }
+                    }
+                });
+            });
+        }
+
+        function updateSimulation() {
+            const getV = id => parseFloat(document.getElementById(id).value);
+            const slv = new EulerSolver(getV('rho_l'), getV('u_l'), getV('p_l'), getV('rho_r'), getV('u_r'), getV('p_r'), getV('gamma'));
+            const { ps, us } = slv.solve();
+            const T = getV('sim_t'), XL = getV('x_l'), XR = getV('x_r'), XC = getV('x_c');
+
+            document.getElementById('waveTypes').innerHTML = `// States:<br>L-Wave: <b>${ps > getV('p_l') ? 'SHOCK' : 'RAREFACTION'}</b><br>Contact: <b>DISCONTINUITY</b><br>R-Wave: <b>${ps > getV('p_r') ? 'SHOCK' : 'RAREFACTION'}</b>`;
+            document.getElementById('keyData').innerHTML = `// Region:<br><b>p*</b> = ${ps.toFixed(6)}<br><b>u*</b> = ${us.toFixed(6)}<br><b>Position</b> = [${XL}, ${XR}], x_c = ${XC}`;
+
+            const pts = 400;
+            const xArr = Array.from({ length: pts }, (_, i) => XL + i * (XR - XL) / (pts - 1));
+            const res = xArr.map(x => slv.sample(x, XC, T, ps, us));
+
+            charts.Rho.data.datasets[0].data = res.map((r, i) => ({ x: xArr[i], y: r.r }));
+            charts.P.data.datasets[0].data = res.map((r, i) => ({ x: xArr[i], y: r.p }));
+            charts.U.data.datasets[0].data = res.map((r, i) => ({ x: xArr[i], y: r.u }));
+            charts.E.data.datasets[0].data = res.map((r, i) => ({ x: xArr[i], y: r.e }));
+            Object.values(charts).forEach(c => {
+                c.options.scales.x.min = XL;
+                c.options.scales.x.max = XR;
+                c.update();
+            });
+
+
+            const densities = res.map(p => p.r);
+            const minR = Math.min(...densities);
+            const maxR = Math.max(...densities);
+
+            startAnim(slv, ps, us, T, XL, XR, XC, minR, maxR);
+        }
+
+
+        function startAnim(slv, ps, us, maxT, XL, XR, XC, minR, maxR) {
+            if (animId) cancelAnimationFrame(animId);
+            const cvs = document.getElementById('densityCanvas');
+            const ctx = cvs.getContext('2d');
+            const W = cvs.width = cvs.offsetWidth, H = cvs.height;
+            const start = performance.now();
+            const cycle = 2000;
+
+            function draw(now) {
+                let progress = ((now - start) % (cycle * 1.2)) / cycle;
+                let t = Math.min(progress, 1) * maxT;
+                document.getElementById('timeVal').innerText = t.toFixed(3);
+
+                const samps = 300;
+                const range = maxR - minR;
+
+                for (let i = 0; i < samps; i++) {
+                    let xPhys = XL + i * (XR - XL) / samps;
+                    let { r } = slv.sample(xPhys, XC, t + 0.00001, ps, us);
+
+                    let norm = range > 1e-9 ? (r - minR) / range : 0.5;
+                    norm = Math.min(1, Math.max(0, norm));
+
+                    let r_col = Math.floor(255 * Math.max(0, 2 * norm - 1));
+                    let g_col = Math.floor(255 * (1 - 2 * Math.abs(norm - 0.5)));
+                    let b_col = Math.floor(255 * Math.max(0, 1 - 2 * norm));
+
+                    ctx.fillStyle = `rgb(${r_col}, ${g_col}, ${b_col})`;
+                    ctx.fillRect(i * W / samps, 0, W / samps + 1, H);
+                }
+                animId = requestAnimationFrame(draw);
+            }
+            draw(performance.now());
+        }
+
+        window.onload = () => { initCharts(); updateSimulation(); };
+    </script>
+</body>
+
+</html>
