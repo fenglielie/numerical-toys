@@ -104,7 +104,7 @@
       justify-content: start;
     }
     .action-row {
-      grid-template-columns: 110px 110px 130px minmax(280px, 1fr);
+      grid-template-columns: 88px 88px 88px 88px 120px minmax(160px, 1fr);
       align-items: center;
     }
     .field {
@@ -129,6 +129,8 @@
     button:hover { transform: translateY(-1px); }
     button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     #startBtn { border-color: #1d5b7c; background: #12324d; }
+    #pauseBtn { border-color: #6b5c1d; background: #3d3412; }
+    #stopBtn  { border-color: #7c2d1d; background: #4a1c12; }
     #resetBtn { border-color: #3d4460; background: #232b41; }
     #integratorBtn {
       border-color: #2f6c5a;
@@ -142,6 +144,16 @@
       border-color: #7fb1ea;
       background: #dcebff;
       color: #11345f;
+    }
+    body.light #pauseBtn {
+      border-color: #c7a33c;
+      background: #f5e8c0;
+      color: #3a2b0d;
+    }
+    body.light #stopBtn {
+      border-color: #e09080;
+      background: #fce0db;
+      color: #5c1a10;
     }
     body.light #resetBtn {
       border-color: #b8c9e6;
@@ -174,6 +186,7 @@
       display: flex;
       align-items: center;
     }
+    .action-row .status { margin-left: 12px; }
     .status.ok { color: var(--ok); }
     .status.err { color: var(--danger); }
     .footer {
@@ -268,6 +281,8 @@
 
         <div class="row action-row">
           <button id="startBtn">Start</button>
+          <button id="pauseBtn" disabled>Pause</button>
+          <button id="stopBtn" disabled>Stop</button>
           <button id="resetBtn">Reset</button>
           <button id="themeBtn">Theme: Dark</button>
           <div id="status" class="status">Idle</div>
@@ -302,7 +317,7 @@
 
       const presetDefs = [
         {
-          name: "Lagrange Equilateral Orbit (Near-Periodic)",
+          name: "Lagrange Equilateral Orbit",
           endTime: 120,
           dt: 0.006,
           integrator: "rk4",
@@ -313,7 +328,7 @@
           ]
         },
         {
-          name: "Figure-Eight (Classic 3-Body Solution)",
+          name: "Figure-Eight Choreography",
           endTime: 80,
           dt: 0.006,
           integrator: "rk4",
@@ -335,7 +350,7 @@
           ]
         },
         {
-          name: "Close-Encounter Chaos (No Instant Collision)",
+          name: "Close-Encounter Chaos",
           endTime: 70,
           dt: 0.006,
           integrator: "rk4",
@@ -357,7 +372,7 @@
           ]
         },
         {
-          name: "Binary Pair + Flyby Body",
+          name: "Binary Pair + Flyby",
           endTime: 55,
           dt: 0.007,
           integrator: "rk4",
@@ -368,14 +383,58 @@
           ]
         },
         {
-          name: "Slow Near-Periodic Perturbation (Long Run)",
+          name: "Perturbed Lagrange Orbit (Long Run)",
           endTime: 220,
           dt: 0.005,
           integrator: "rk4",
           bodies: [
-            { m: 1.00, r: 0.012, x: 0.00,      y: 1.05,    vx: -0.70565, vy: 0.00800 },
-            { m: 0.97, r: 0.012, x: -0.90933,  y: -0.525,  vx: 0.35783,  vy: -0.61972 },
-            { m: 1.03, r: 0.012, x: 0.90933,   y: -0.525,  vx: 0.34782,  vy: 0.60350 }
+            { m: 1.00, r: 0.040, x: 0.00,      y: 1.05,    vx: -0.70565, vy: 0.00800 },
+            { m: 0.97, r: 0.040, x: -0.90933,  y: -0.525,  vx: 0.35783,  vy: -0.61972 },
+            { m: 1.03, r: 0.040, x: 0.90933,   y: -0.525,  vx: 0.34782,  vy: 0.60350 }
+          ]
+        },
+        {
+          name: "Sun–Earth–Jupiter",
+          endTime: 35,
+          dt: 0.005,
+          integrator: "rk4",
+          bodies: [
+            { m: 100.0, r: 0.09,  x: 0.0,  y: 0.0,  vx: 0.0,  vy: 0.0 },
+            { m: 1.0,   r: 0.035, x: 1.0,  y: 0.0,  vx: 0.0,  vy: 10.0 },
+            { m: 10.0,  r: 0.06,  x: 2.5,  y: 0.0,  vx: 0.0,  vy: 6.3246 }
+          ]
+        },
+        {
+          name: "Sun–Earth–Moon",
+          endTime: 28,
+          dt: 0.004,
+          integrator: "rk4",
+          bodies: [
+            { m: 50.0,  r: 0.08,  x: 0.0,  y: 0.0,  vx: 0.0,   vy: 0.0 },
+            { m: 1.0,   r: 0.035, x: 2.0,  y: 0.0,  vx: 0.0,   vy: 5.0 },
+            { m: 0.005, r: 0.022, x: 2.0,  y: 0.15, vx: -2.548, vy: 5.0 }
+          ]
+        },
+        {
+          name: "Binary Star + Circumbinary Planet",
+          endTime: 45,
+          dt: 0.005,
+          integrator: "rk4",
+          bodies: [
+            { m: 4.0,  r: 0.05, x: -0.6,  y: 0.0,  vx: 0.0,  vy: -1.291 },
+            { m: 4.0,  r: 0.05, x: 0.6,   y: 0.0,  vx: 0.0,  vy: 1.291 },
+            { m: 0.15, r: 0.030, x: 3.0,   y: 0.0,  vx: 0.0,  vy: 1.633 }
+          ]
+        },
+        {
+          name: "Retrograde vs Prograde Orbits",
+          endTime: 50,
+          dt: 0.005,
+          integrator: "rk4",
+          bodies: [
+            { m: 50.0, r: 0.08,  x: 0.0,   y: 0.0,  vx: 0.0,   vy: 0.0 },
+            { m: 0.5,  r: 0.030, x: 1.2,   y: 0.0,  vx: 0.0,   vy: 6.455 },
+            { m: 0.8,  r: 0.035, x: -1.8,  y: 0.0,  vx: 0.0,   vy: -5.270 }
           ]
         }
       ];
@@ -386,6 +445,8 @@
       const dtInput = document.getElementById("dtInput");
       const integratorBtn = document.getElementById("integratorBtn");
       const startBtn = document.getElementById("startBtn");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const stopBtn = document.getElementById("stopBtn");
       const resetBtn = document.getElementById("resetBtn");
       const themeBtn = document.getElementById("themeBtn");
       const statusEl = document.getElementById("status");
@@ -395,6 +456,7 @@
 
       let rafId = null;
       let running = false;
+      let paused = false;
       let state = null;
       let defaultFormValues = null;
       let currentIntegrator = "verlet";
@@ -734,6 +796,35 @@
           }
         }
 
+        if (!running) {
+          for (let i = 0; i < state.bodies.length; i++) {
+            const body = state.bodies[i];
+            const sp = worldToScreen(body.pos.x, body.pos.y);
+            const speed = Math.sqrt(body.vel.x * body.vel.x + body.vel.y * body.vel.y);
+            const arrLen = Math.max(15, Math.min(120, speed * 0.25 * sp.scale));
+            if (speed > 0.001 && arrLen > 0) {
+              const nx = body.vel.x / speed;
+              const ny = body.vel.y / speed;
+              const ex = sp.x + nx * arrLen;
+              const ey = sp.y + ny * arrLen;
+              ctx.beginPath();
+              ctx.moveTo(sp.x, sp.y);
+              ctx.lineTo(ex, ey);
+              ctx.strokeStyle = COLORS[i] + "dd";
+              ctx.lineWidth = 2.8;
+              ctx.stroke();
+              const hd = Math.min(arrLen * 0.28, 12);
+              ctx.beginPath();
+              ctx.moveTo(ex, ey);
+              ctx.lineTo(ex - hd * Math.cos(Math.atan2(ny, nx) - 0.55), ey - hd * Math.sin(Math.atan2(ny, nx) - 0.55));
+              ctx.lineTo(ex - hd * Math.cos(Math.atan2(ny, nx) + 0.55), ey - hd * Math.sin(Math.atan2(ny, nx) + 0.55));
+              ctx.closePath();
+              ctx.fillStyle = COLORS[i] + "ee";
+              ctx.fill();
+            }
+          }
+        }
+
         for (let i = 0; i < state.bodies.length; i++) {
           const body = state.bodies[i];
           const sp = worldToScreen(body.pos.x, body.pos.y);
@@ -795,13 +886,23 @@
         ctx.stroke();
       }
 
+      function updateButtonStates() {
+        var active = running && !paused;
+        startBtn.disabled = active;
+        pauseBtn.disabled = !running;
+        pauseBtn.textContent = paused ? "Resume" : "Pause";
+        stopBtn.disabled = !running;
+        resetBtn.disabled = active;
+        setConfigDisabled(active);
+      }
+
       function stopSimulation(msg, isError) {
         running = false;
+        paused = false;
         if (rafId !== null) cancelAnimationFrame(rafId);
         rafId = null;
         setStatus(msg, isError ? "err" : "ok");
-        startBtn.disabled = false;
-        setConfigDisabled(false);
+        updateButtonStates();
       }
 
       function animate() {
@@ -826,7 +927,7 @@
         recomputeCameraTarget();
         render();
 
-        if (running) rafId = requestAnimationFrame(animate);
+        if (running && !paused) rafId = requestAnimationFrame(animate);
       }
 
       function resizeCanvas() {
@@ -897,26 +998,58 @@
       }
 
       function onStart() {
+        if (running) return;
         try {
           buildInitialState();
         } catch (err) {
           stopSimulation(`Parameter error: ${err.message}`, true);
           return;
         }
-        if (running) return;
         running = true;
-        startBtn.disabled = true;
-        setConfigDisabled(true);
+        paused = false;
+        updateButtonStates();
         setStatus(`Running | ${INTEGRATORS.find((it) => it.id === state.integrator).label} | dt=${state.dt} | T=${state.endTime}`, "ok");
         render();
         rafId = requestAnimationFrame(animate);
       }
 
+      function onPause() {
+        if (!running) return;
+        paused = !paused;
+        if (paused) {
+          if (rafId !== null) cancelAnimationFrame(rafId);
+          rafId = null;
+          setStatus("Paused", "");
+        } else {
+          setStatus(`Running | ${INTEGRATORS.find((it) => it.id === state.integrator).label} | dt=${state.dt} | T=${state.endTime}`, "ok");
+          rafId = requestAnimationFrame(animate);
+        }
+        updateButtonStates();
+      }
+
+      function onStop() {
+        if (!running) return;
+        var t = state ? state.simTime.toFixed(2) : "0.00";
+        running = false;
+        paused = false;
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = null;
+        try {
+          buildInitialState();
+          setStatus(`Stopped at t=${t}`, "");
+        } catch (_) {
+          setStatus(`Stopped at t=${t}`, "err");
+        }
+        updateButtonStates();
+        render();
+      }
+
       function onReset() {
+        if (running && !paused) return;
         if (rafId !== null) cancelAnimationFrame(rafId);
         running = false;
-        startBtn.disabled = false;
-        setConfigDisabled(false);
+        paused = false;
+        rafId = null;
         restoreFormValues(defaultFormValues);
         try {
           buildInitialState();
@@ -924,6 +1057,7 @@
         } catch (_) {
           setStatus("Invalid parameters after reset", "err");
         }
+        updateButtonStates();
         render();
       }
 
@@ -952,6 +1086,8 @@
         });
 
         startBtn.addEventListener("click", onStart);
+        pauseBtn.addEventListener("click", onPause);
+        stopBtn.addEventListener("click", onStop);
         resetBtn.addEventListener("click", onReset);
         integratorBtn.addEventListener("click", toggleIntegrator);
         themeBtn.addEventListener("click", toggleTheme);
@@ -959,7 +1095,7 @@
         presetSelect.value = "0";
         applyPreset(0);
         defaultFormValues = captureFormValues();
-        setConfigDisabled(false);
+        updateButtonStates();
         try {
           const saved = localStorage.getItem("three-body-theme");
           applyTheme(saved || "light");
