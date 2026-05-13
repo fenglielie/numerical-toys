@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ColorManager — Browse Palettes</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 24px 16px;
+        }
+
+        /* ── Container ── */
+        #app {
+            width: 100%;
+            max-width: 1100px;
+            max-height: calc(100vh - 48px);
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        /* ── Header ── */
+        #app-header {
+            padding: 14px 22px;
+            flex-shrink: 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+        }
+
+        #app-header .title {
+            font-weight: 700;
+            font-size: 15px;
+            color: #222;
+        }
+
+        #app-header .count {
+            color: #999;
+            font-weight: 400;
+            font-size: 13px;
+        }
+
+        /* ── Footer ── */
+        #app-footer {
+            padding: 8px 22px;
+            flex-shrink: 0;
+            border-top: 1px solid #eee;
+            font-size: 11px;
+            color: #aaa;
+            text-align: center;
+        }
+
+        #app-footer a {
+            color: #88a;
+            text-decoration: none;
+        }
+
+        #app-footer a:hover {
+            text-decoration: underline;
+        }
+
+        #toggle-list {
+            display: none;
+            margin-left: auto;
+            background: #eef3fa;
+            border: 1px solid #ccd8e8;
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #456;
+        }
+
+        /* ── Body (list + detail) ── */
+        #app-body {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* ── List panel ── */
+        #list-panel {
+            width: 340px;
+            min-width: 260px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            border-right: 1px solid #eee;
+            background: #fafbfc;
+        }
+
+        #list-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+        }
+
+        .palette-row {
+            display: flex;
+            align-items: center;
+            padding: 6px 12px;
+            gap: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.1s;
+            min-height: 44px;
+        }
+
+        .palette-row:nth-child(even) {
+            background: #f8f9fb;
+        }
+
+        .palette-row:hover {
+            background: #eef3fa;
+        }
+
+        .palette-row.selected {
+            background: #dce8f8;
+        }
+
+        .row-info {
+            width: 175px;
+            flex-shrink: 0;
+            font-size: 11px;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .row-info .idx {
+            font-weight: 600;
+        }
+
+        .row-info .sel {
+            color: #888;
+            font-size: 10px;
+        }
+
+        .row-swatches {
+            display: flex;
+            gap: 1px;
+            align-items: center;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .row-swatch {
+            width: 14px;
+            height: 17px;
+            border-radius: 2px;
+            border: 1px solid rgba(0, 0, 0, 0.10);
+            flex-shrink: 0;
+        }
+
+        .row-extra {
+            font-size: 9px;
+            color: #aaa;
+            margin-left: 2px;
+            flex-shrink: 0;
+        }
+
+        /* ── Resizer ── */
+        #resizer {
+            width: 5px;
+            cursor: col-resize;
+            background: transparent;
+            flex-shrink: 0;
+            transition: background 0.15s;
+            z-index: 2;
+        }
+
+        #resizer:hover,
+        #resizer.active {
+            background: #b0c4de;
+        }
+
+        /* ── Detail panel ── */
+        #detail-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+        }
+
+        #swatches-area {
+            flex: 0 0 auto;
+            padding: 14px 24px 4px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #swatches-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #222;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        #swatches-grid {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .swatch-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .swatch-block {
+            width: 100%;
+            height: 50px;
+            border-radius: 3px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .swatch-hex {
+            font-size: 10px;
+            color: #666;
+            font-family: 'SF Mono', 'Consolas', monospace;
+        }
+
+        .swatch-rgb {
+            font-size: 9px;
+            color: #999;
+            font-family: 'SF Mono', 'Consolas', monospace;
+        }
+
+        .swatch-idx {
+            font-size: 9px;
+            color: #bbb;
+        }
+
+        #stats-area {
+            flex: 1;
+            padding: 6px 24px 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        #stats-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 4px;
+            flex-shrink: 0;
+        }
+
+        #stats-canvas-wrap {
+            flex: 1;
+            position: relative;
+            min-height: 60px;
+        }
+
+        #stats-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #curves-area {
+            flex: 1;
+            padding: 8px 24px 14px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        #curves-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #222;
+            margin-bottom: 8px;
+            flex-shrink: 0;
+        }
+
+        #curves-canvas-wrap {
+            flex: 1;
+            position: relative;
+            min-height: 80px;
+        }
+
+        #curves-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* ── Scrollbar ── */
+        #list-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #list-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #list-scroll::-webkit-scrollbar-thumb {
+            background: #d0d0d0;
+            border-radius: 3px;
+        }
+
+        #list-scroll::-webkit-scrollbar-thumb:hover {
+            background: #b0b0b0;
+        }
+
+        /* ── Empty / error ── */
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+        }
+
+        /* ════════════════════════════════════════════════
+   Mobile: stack vertically, collapsible list
+   ════════════════════════════════════════════════ */
+        @media (max-width: 768px) {
+            body {
+                padding: 0;
+            }
+
+            #app {
+                margin: 0;
+                border-radius: 0;
+                box-shadow: none;
+                max-height: none;
+                min-height: 100vh;
+            }
+
+            #app-body {
+                flex-direction: column;
+                height: auto;
+                min-height: 0;
+            }
+
+            #toggle-list {
+                display: inline-block;
+            }
+
+            #list-panel {
+                width: 100%;
+                min-width: 0;
+                border-right: none;
+                border-bottom: 1px solid #eee;
+                max-height: 45vh;
+                display: none;
+                /* hidden by default on mobile */
+            }
+
+            #list-panel.open {
+                display: flex;
+            }
+
+            #resizer {
+                display: none;
+            }
+
+            .palette-row {
+                min-height: 40px;
+                padding: 4px 10px;
+            }
+
+            .row-info {
+                width: 155px;
+                font-size: 10px;
+            }
+
+            .row-info .sel {
+                font-size: 9px;
+            }
+
+            .row-swatch {
+                width: 13px;
+                height: 15px;
+            }
+
+            #swatches-area {
+                padding: 10px 14px 6px;
+            }
+
+            #stats-area {
+                padding: 4px 14px 0;
+            }
+
+            #curves-area {
+                padding: 4px 14px 10px;
+            }
+
+            .swatch-block {
+                height: 44px;
+            }
+
+            .swatch-hex {
+                font-size: 9px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div id="app-header">
+            <span class="title">ColorManager Browser</span>
+            <span class="count" id="palette-count"></span>
+            <button id="toggle-list" onclick="toggleList()">List</button>
+        </div>
+
+        <div id="app-body">
+            <div id="list-panel" class="open">
+                <div id="list-scroll"></div>
+            </div>
+            <div id="resizer"></div>
+            <div id="detail-panel">
+                <div id="swatches-area">
+                    <div id="swatches-title"></div>
+                    <div id="swatches-grid"></div>
+                </div>
+                <div id="stats-area">
+                    <div id="stats-title"></div>
+                    <div id="stats-canvas-wrap">
+                        <canvas id="stats-canvas"></canvas>
+                    </div>
+                </div>
+                <div id="curves-area">
+                    <div id="curves-title"></div>
+                    <div id="curves-canvas-wrap">
+                        <canvas id="curves-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="app-footer">
+            Inspired by the color palette dataset from
+            <a href="https://github.com/lcpmgh/colors" target="_blank" rel="noopener">github.com/lcpmgh/colors</a>
+        </div>
+    </div>
+
+    <script>
+        // ── Globals ──
+        var PALETTES = [], SELECT_DATA = [], nTotal = 0, pos = 0;
+        var listScroll = document.getElementById('list-scroll');
+        var paletteCount = document.getElementById('palette-count');
+        var swatchesTitle = document.getElementById('swatches-title');
+        var swatchesGrid = document.getElementById('swatches-grid');
+        var curvesTitle = document.getElementById('curves-title');
+        var curvesCanvas = document.getElementById('curves-canvas');
+        var statsTitle = document.getElementById('stats-title');
+        var statsCanvas = document.getElementById('stats-canvas');
+        var resizerEl = document.getElementById('resizer');
+        var listPanel = document.getElementById('list-panel');
+        var isMobile = window.innerWidth <= 768;
+
+        // ── Parse CSV ──
+        function parseCSV(text) {
+            PALETTES = [];
+            text.split(/\r?\n/).forEach(function (line) {
+                line = line.trim();
+                if (!line) return;
+                var pal = [];
+                line.split(',').forEach(function (token) {
+                    var h = token.trim();
+                    if (!h || h === '#') return;
+                    if (h.charAt(0) !== '#') h = '#' + h;
+                    if (h.length === 7 && /^#[0-9A-Fa-f]{6}$/.test(h)) pal.push(h);
+                });
+                if (pal.length) PALETTES.push(pal);
+            });
+        }
+
+        // ── Compute select(n, rank) ──
+        function computeSelectRanks() {
+            SELECT_DATA = [];
+            var sorted = PALETTES.map(function (p, i) { return { idx: i, nc: p.length }; });
+            sorted.sort(function (a, b) { return a.nc - b.nc; });
+            PALETTES.forEach(function (p, i) {
+                var rank = 0;
+                for (var j = 0; j < sorted.length; j++) {
+                    if (sorted[j].nc >= p.length) {
+                        rank++;
+                        if (sorted[j].idx === i) break;
+                    }
+                }
+                SELECT_DATA.push({ n: p.length, rank: rank });
+            });
+        }
+
+        // ── Build list ──
+        function buildList() {
+            listScroll.innerHTML = '';
+            for (var i = 0; i < nTotal; i++) (function (i) {
+                var p = PALETTES[i], nc = p.length, sd = SELECT_DATA[i];
+                var row = document.createElement('div');
+                row.className = 'palette-row';
+                row.setAttribute('data-idx', i);
+                row.addEventListener('click', function () { select(i); });
+
+                var info = document.createElement('div');
+                info.className = 'row-info';
+                info.innerHTML =
+                    '<span class="idx">#' + (i + 1) + '</span>' +
+                    ' &nbsp;' + nc + ' col' +
+                    ' &nbsp;<span class="sel">sel(' + sd.n + ',' + sd.rank + ')</span>';
+                row.appendChild(info);
+
+                var sw = document.createElement('div');
+                sw.className = 'row-swatches';
+                var nShow = Math.min(10, nc);
+                for (var j = 0; j < nShow; j++) {
+                    var s = document.createElement('div');
+                    s.className = 'row-swatch';
+                    s.style.background = p[j];
+                    sw.appendChild(s);
+                }
+                if (nc > 10) {
+                    var ex = document.createElement('span');
+                    ex.className = 'row-extra';
+                    ex.textContent = '+' + (nc - 10);
+                    sw.appendChild(ex);
+                }
+                row.appendChild(sw);
+                listScroll.appendChild(row);
+            })(i);
+        }
+
+        // ── Render detail ──
+        function renderDetail() {
+            var p = PALETTES[pos], nc = p.length, sd = SELECT_DATA[pos];
+            swatchesTitle.textContent =
+                '#' + (pos + 1) + '  ' + nc + ' colors  select(' + sd.n + ',' + sd.rank + ')';
+
+            swatchesGrid.innerHTML = '';
+            for (var i = 0; i < nc; i++) {
+                var col = document.createElement('div');
+                col.className = 'swatch-col';
+                var b = document.createElement('div');
+                b.className = 'swatch-block';
+                b.style.background = p[i];
+                col.appendChild(b);
+                var h = document.createElement('div');
+                h.className = 'swatch-hex';
+                h.textContent = p[i];
+                col.appendChild(h);
+                var r = parseInt(p[i].slice(1, 3), 16);
+                var g = parseInt(p[i].slice(3, 5), 16);
+                var b = parseInt(p[i].slice(5, 7), 16);
+                var rgb = document.createElement('div');
+                rgb.className = 'swatch-rgb';
+                rgb.textContent = r + ' ' + g + ' ' + b;
+                col.appendChild(rgb);
+                var x = document.createElement('div');
+                x.className = 'swatch-idx';
+                x.textContent = '(' + (i + 1) + ')';
+                col.appendChild(x);
+                swatchesGrid.appendChild(col);
+            }
+            statsTitle.textContent = 'Palette distribution (' + nc + ' colors)';
+            drawStats(p);
+
+            curvesTitle.textContent = 'Sample curves (' + nc + ' colors)';
+            drawCurves(p);
+        }
+
+        function drawStats(colors) {
+            var wrap = document.getElementById('stats-canvas-wrap');
+            var dpr = window.devicePixelRatio || 1;
+            var w = wrap.clientWidth, hh = wrap.clientHeight;
+            statsCanvas.width = w * dpr;
+            statsCanvas.height = hh * dpr;
+            statsCanvas.style.width = w + 'px';
+            statsCanvas.style.height = hh + 'px';
+
+            var ctx = statsCanvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            ctx.clearRect(0, 0, w, hh);
+            var n = colors.length;
+            if (!n) return;
+
+            var ml = 6, mr = 6, mt = 4, mb = 2;
+            var bw = (w - ml - mr) / n;
+            var maxH = hh - mt - mb;
+
+            for (var i = 0; i < n; i++) {
+                var x = ml + i * bw;
+                var r = (i * 7 + 3) % 11;
+                var barH = maxH * (0.45 + r * 0.05);
+                var y = hh - mb - barH;
+                ctx.fillStyle = colors[i];
+                ctx.fillRect(Math.floor(x), Math.floor(y), Math.ceil(bw - 1), Math.ceil(barH));
+            }
+        }
+
+        function drawCurves(colors) {
+            var wrap = document.getElementById('curves-canvas-wrap');
+            var dpr = window.devicePixelRatio || 1;
+            var w = wrap.clientWidth, hh = wrap.clientHeight;
+
+            curvesCanvas.width = w * dpr;
+            curvesCanvas.height = hh * dpr;
+            curvesCanvas.style.width = w + 'px';
+            curvesCanvas.style.height = hh + 'px';
+
+            var ctx = curvesCanvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            ctx.clearRect(0, 0, w, hh);
+
+            var n = colors.length;
+            var ml = 38, mr = 16, mt = 10, mb = 28;
+            var pw = w - ml - mr, ph = hh - mt - mb;
+            var midY = mt + ph / 2, amp = ph / 2.3;
+
+            ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(ml, mt); ctx.lineTo(ml, hh - mb); ctx.lineTo(w - mr, hh - mb);
+            ctx.stroke();
+
+            ctx.fillStyle = '#999'; ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center'; ctx.fillText('x', w - mr + 12, hh - mb + 4);
+            ctx.textAlign = 'right'; ctx.fillText('y', ml - 6, mt - 4);
+
+            var steps = 200;
+            for (var i = 0; i < n; i++) {
+                ctx.strokeStyle = colors[i];
+                ctx.lineWidth = isMobile ? 1.6 : 2.0;
+                ctx.beginPath();
+                for (var j = 0; j <= steps; j++) {
+                    var t = (j / steps) * 4 * Math.PI;
+                    var sx = ml + (j / steps) * pw;
+                    var sy = midY - Math.sin(t + (i * Math.PI) / n) * amp;
+                    j === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
+                }
+                ctx.stroke();
+            }
+        }
+
+        // ── Selection ──
+        function select(i) {
+            if (pos === i && document.querySelector('.palette-row.selected')) return;
+            var old = document.querySelector('.palette-row[data-idx="' + pos + '"]');
+            if (old) old.classList.remove('selected');
+            pos = i;
+            var row = document.querySelector('.palette-row[data-idx="' + i + '"]');
+            if (row) {
+                row.classList.add('selected');
+                row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+            renderDetail();
+            if (isMobile) closeList();
+        }
+
+        // ── Mobile list toggle ──
+        function toggleList() {
+            listPanel.classList.toggle('open');
+        }
+        function closeList() {
+            if (isMobile) listPanel.classList.remove('open');
+        }
+
+        // ── Keyboard ──
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (pos < nTotal - 1) select(pos + 1);
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (pos > 0) select(pos - 1);
+            }
+        });
+
+        // ── Resize (desktop only) ──
+        var resizing = false;
+        resizerEl.addEventListener('mousedown', function (e) {
+            if (isMobile) return;
+            resizing = true;
+            resizerEl.classList.add('active');
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function (e) {
+            if (!resizing) return;
+            var w = Math.max(240, Math.min(500, e.clientX - app.offsetLeft));
+            listPanel.style.width = w + 'px';
+            drawCurves(PALETTES[pos] || []);
+            drawStats(PALETTES[pos] || []);
+        });
+        document.addEventListener('mouseup', function () {
+            if (resizing) {
+                resizing = false;
+                resizerEl.classList.remove('active');
+                document.body.style.cursor = '';
+            }
+        });
+
+        // ── Responsive ──
+        var resizeTimer;
+        window.addEventListener('resize', function () {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function () {
+                isMobile = window.innerWidth <= 768;
+                if (!isMobile) listPanel.classList.add('open');
+                drawCurves(PALETTES[pos] || []);
+                drawStats(PALETTES[pos] || []);
+            }, 150);
+        });
+
+        // ── Init ──
+        fetch('colors.csv')
+            .then(function (r) { return r.text(); })
+            .then(function (text) {
+                parseCSV(text);
+                computeSelectRanks();
+                nTotal = PALETTES.length;
+                paletteCount.textContent = nTotal + ' palettes';
+                buildList();
+                select(0);
+            })
+            .catch(function (err) {
+                listScroll.innerHTML =
+                    '<div class="empty-state" style="color:#c33">' +
+                    'Failed to load colors.csv.<br><small>' +
+                    err.message + '</small></div>';
+            });
+    </script>
+</body>
+
+</html>
