@@ -1,0 +1,1548 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Image Low-Rank Approximation and Singular Value Decay</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f5f6f1;
+            --ink: #1c2420;
+            --muted: #66716a;
+            --line: #d6dbd2;
+            --panel: #ffffff;
+            --accent: #0d7f78;
+            --accent-2: #c04454;
+            --accent-3: #2d63ad;
+            --warn: #9a5a10;
+            --shadow: 0 16px 36px rgba(28, 36, 32, 0.1);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--ink);
+        }
+
+        main {
+            width: min(1180px, calc(100vw - 32px));
+            margin: 0 auto;
+            padding: 26px 0 32px;
+        }
+
+        header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 18px;
+            align-items: end;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(28px, 4vw, 44px);
+            line-height: 1.04;
+            font-weight: 760;
+            letter-spacing: 0;
+        }
+
+        .subtitle {
+            margin: 10px 0 0;
+            max-width: 980px;
+            color: var(--muted);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .nowrap {
+            white-space: nowrap;
+        }
+
+        .workspace {
+            display: grid;
+            gap: 18px;
+            margin-top: 20px;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+        }
+
+        .controls {
+            padding: 16px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: minmax(360px, 1.5fr) minmax(190px, 0.8fr);
+            gap: 14px;
+            align-items: end;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+        }
+
+        label,
+        .label {
+            font-size: 13px;
+            color: #3b4640;
+            font-weight: 680;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px dashed #aab5ad;
+            border-radius: 6px;
+            background: #fafbf8;
+            color: var(--ink);
+            font-size: 13px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+        }
+
+        input[type="number"],
+        input[type="url"],
+        select {
+            width: 100%;
+            min-height: 38px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--ink);
+            padding: 8px 10px;
+            font: inherit;
+        }
+
+        .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 18px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .status {
+            min-height: 20px;
+            color: var(--warn);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .plot-panel,
+        .image-panel {
+            padding: 16px;
+        }
+
+        .panel-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .heading-block {
+            display: grid;
+            gap: 4px;
+        }
+
+        .panel-note {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 17px;
+            line-height: 1.2;
+            letter-spacing: 0;
+        }
+
+        .icon-button {
+            min-height: 34px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--ink);
+            padding: 6px 11px;
+            font: inherit;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .icon-button:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+
+        .image-input {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            align-items: center;
+            border: 1px dashed #aab5ad;
+            border-radius: 6px;
+            padding: 6px;
+            background: #fafbf8;
+        }
+
+        .image-input.is-dragging {
+            border-color: var(--accent);
+            background: #f1fbf8;
+        }
+
+        .image-input input[type="file"] {
+            display: none;
+        }
+
+        .image-input input[type="url"] {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            min-height: 34px;
+            padding: 0 6px;
+            outline: none;
+            cursor: text;
+        }
+
+        .image-input input[type="url"]::placeholder {
+            color: #7c8780;
+        }
+
+        .file-button {
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--ink);
+            padding: 6px 11px;
+            min-height: 34px;
+            font-size: 13px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .swatch {
+            width: 12px;
+            height: 3px;
+            border-radius: 999px;
+            background: currentColor;
+        }
+
+        .red {
+            color: var(--accent-2);
+        }
+
+        .green {
+            color: var(--accent);
+        }
+
+        .blue {
+            color: var(--accent-3);
+        }
+
+        .alpha {
+            color: #5f6670;
+        }
+
+        canvas {
+            display: block;
+            max-width: 100%;
+            background: #fff;
+        }
+
+        #plot {
+            width: 100%;
+            height: 330px;
+            border: 1px solid var(--line);
+            border-radius: 2px;
+            cursor: crosshair;
+            touch-action: none;
+            background: #fff;
+        }
+
+        .images {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .figure {
+            min-width: 0;
+        }
+
+        .figure-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
+            min-height: 24px;
+            margin-bottom: 8px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .canvas-wrap {
+            display: grid;
+            place-items: center;
+            height: clamp(320px, 44vw, 560px);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background:
+                linear-gradient(45deg, #eef1ec 25%, transparent 25%),
+                linear-gradient(-45deg, #eef1ec 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #eef1ec 75%),
+                linear-gradient(-45deg, transparent 75%, #eef1ec 75%);
+            background-size: 18px 18px;
+            background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+            overflow: hidden;
+            cursor: grab;
+            touch-action: none;
+        }
+
+        .canvas-wrap.is-panning {
+            cursor: grabbing;
+        }
+
+        .canvas-wrap canvas {
+            width: min(100%, var(--preview-width, 100%));
+            height: min(100%, var(--preview-height, 100%));
+            object-fit: contain;
+            image-rendering: auto;
+            transform: translate(var(--pan-x, 0px), var(--pan-y, 0px)) scale(var(--zoom, 1));
+            transform-origin: center center;
+            will-change: transform;
+        }
+
+        .placeholder {
+            color: var(--muted);
+            font-size: 14px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .metric {
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 10px;
+            background: #fbfcfa;
+            min-width: 0;
+        }
+
+        .metric strong {
+            display: block;
+            font-size: 20px;
+            line-height: 1.2;
+        }
+
+        .metric span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .metric-value {
+            position: relative;
+            display: inline-block;
+            outline: none;
+        }
+
+        .formula-tooltip {
+            position: absolute;
+            left: 0;
+            bottom: calc(100% + 10px);
+            z-index: 5;
+            min-width: 260px;
+            max-width: min(420px, 78vw);
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #fff;
+            box-shadow: var(--shadow);
+            color: var(--ink);
+            font-size: 12px;
+            line-height: 1.45;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(4px);
+            transition: opacity 120ms ease, transform 120ms ease;
+        }
+
+        .metric-value:hover .formula-tooltip,
+        .metric-value:focus .formula-tooltip {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 900px) {
+
+            header,
+            .controls-grid,
+            .images,
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+
+            main {
+                width: min(100vw - 20px, 720px);
+                padding: 14px 0 22px;
+            }
+
+            header {
+                gap: 10px;
+                padding-bottom: 12px;
+            }
+
+            h1 {
+                font-size: clamp(24px, 7vw, 34px);
+                line-height: 1.08;
+            }
+
+            .workspace {
+                gap: 12px;
+                margin-top: 12px;
+            }
+
+            .controls,
+            .plot-panel,
+            .image-panel {
+                padding: 12px;
+            }
+
+            .panel-head {
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            #plot {
+                height: 260px;
+            }
+
+            .canvas-wrap {
+                height: min(70vw, 360px);
+                min-height: 230px;
+            }
+
+            .meta {
+                display: grid;
+                gap: 6px;
+            }
+
+            .formula-tooltip {
+                left: 50%;
+                min-width: min(300px, calc(100vw - 40px));
+                transform: translate(-50%, 4px);
+            }
+
+            .metric-value:hover .formula-tooltip,
+            .metric-value:focus .formula-tooltip {
+                transform: translate(-50%, 0);
+            }
+        }
+
+        @media (max-width: 520px) {
+            main {
+                width: calc(100vw - 12px);
+                padding-top: 8px;
+            }
+
+            .panel {
+                border-radius: 6px;
+                box-shadow: 0 8px 22px rgba(28, 36, 32, 0.08);
+            }
+
+            .image-input {
+                grid-template-columns: 1fr;
+            }
+
+            .file-button {
+                width: 100%;
+            }
+
+            .panel-head {
+                flex-direction: column;
+            }
+
+            .legend {
+                gap: 8px;
+            }
+
+            #plot {
+                height: 230px;
+            }
+
+            .figure-title {
+                display: grid;
+                gap: 2px;
+            }
+
+            .canvas-wrap {
+                height: 255px;
+                min-height: 220px;
+            }
+
+            .metric {
+                padding: 9px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <header>
+            <div>
+                <h1>Image SVD Low-Rank Approximation</h1>
+            </div>
+        </header>
+
+        <section class="workspace">
+            <section class="panel controls">
+                <div class="controls-grid">
+                    <div class="field">
+                        <label for="urlInput">Image Source</label>
+                        <div class="image-input" id="imageInputBox" tabindex="0">
+                            <input id="fileInput" type="file" accept="image/*">
+                            <input id="urlInput" type="url"
+                                placeholder="Enter an image URL, paste an image, or drop a file">
+                            <button class="file-button" id="chooseFileButton" type="button">Choose File</button>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="maxSide">Compute Resolution</label>
+                        <select id="maxSide">
+                            <option value="192">192 x 192 (fastest)</option>
+                            <option value="320">320 x 320</option>
+                            <option value="512" selected>512 x 512 (recommended)</option>
+                            <option value="768">768 x 768 (slower)</option>
+                            <option value="full">Original resolution (very slow)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="meta">
+                    <div id="status" class="status">Choose a local image, enter a URL, paste an image, or drop a file.
+                    </div>
+                    <div id="imageMeta">Original size: -</div>
+                    <div id="rankMeta">Available rank: -</div>
+                </div>
+            </section>
+
+            <section class="panel plot-panel">
+                <div class="panel-head">
+                    <div class="heading-block">
+                        <h2>Normalized Singular Value Decay</h2>
+                        <p class="panel-note">The vertical axis is σ / σ₁; faster decay indicates stronger low-rank
+                            structure.</p>
+                    </div>
+                    <div class="legend">
+                        <span class="red"><i class="swatch"></i>R</span>
+                        <span class="green"><i class="swatch"></i>G</span>
+                        <span class="blue"><i class="swatch"></i>B</span>
+                        <span class="alpha" hidden><i class="swatch"></i>A</span>
+                    </div>
+                </div>
+                <div id="plot" aria-label="Normalized singular value decay plot"></div>
+            </section>
+
+            <section class="panel image-panel">
+                <div class="panel-head">
+                    <h2>Image Preview</h2>
+                    <button class="icon-button" id="resetPreview" type="button" disabled>Reset View</button>
+                </div>
+                <div class="images">
+                    <div class="figure">
+                        <div class="figure-title">
+                            <span>Input Image Matrix</span>
+                            <span id="originalInfo">-</span>
+                        </div>
+                        <div class="canvas-wrap" id="originalWrap">
+                            <div class="placeholder">Waiting for image input</div>
+                            <canvas id="originalCanvas" hidden></canvas>
+                        </div>
+                    </div>
+                    <div class="figure">
+                        <div class="figure-title">
+                            <span>Rank-Truncated Approximation</span>
+                            <span id="approxInfo">r = -</span>
+                        </div>
+                        <div class="canvas-wrap" id="approxWrap">
+                            <div class="placeholder">Waiting for SVD</div>
+                            <canvas id="approxCanvas" hidden></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value" tabindex="0">
+                            <strong id="energyMetric">-</strong>
+                            <div class="formula-tooltip">
+                                \(E_r=\dfrac{\sum_c\sum_{i=1}^{r}\sigma_{c,i}^{2}}{\sum_c\sum_i\sigma_{c,i}^{2}}\)</div>
+                        </div>
+                        <span>Retained Energy</span>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" tabindex="0">
+                            <strong id="storageMetric">-</strong>
+                            <div class="formula-tooltip">\(\rho_r=\dfrac{r(h+w+1)}{hw}\)</div>
+                        </div>
+                        <span>Low-Rank Storage Ratio</span>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" tabindex="0">
+                            <strong id="errorMetric">-</strong>
+                            <div class="formula-tooltip">\(\varepsilon_r=\dfrac{\lVert A-A_r\rVert_F}{\lVert
+                                A\rVert_F}=\sqrt{1-E_r}\)</div>
+                        </div>
+                        <span>Relative Frobenius Error</span>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [["\\(", "\\)"]] },
+            svg: { fontCache: "global" }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script>
+        "use strict";
+
+        const fileInput = document.getElementById("fileInput");
+        const urlInput = document.getElementById("urlInput");
+        const imageInputBox = document.getElementById("imageInputBox");
+        const chooseFileButton = document.getElementById("chooseFileButton");
+        const maxSideSelect = document.getElementById("maxSide");
+        const statusEl = document.getElementById("status");
+        const imageMeta = document.getElementById("imageMeta");
+        const rankMeta = document.getElementById("rankMeta");
+        const originalInfo = document.getElementById("originalInfo");
+        const approxInfo = document.getElementById("approxInfo");
+        const resetPreviewButton = document.getElementById("resetPreview");
+        const energyMetric = document.getElementById("energyMetric");
+        const storageMetric = document.getElementById("storageMetric");
+        const errorMetric = document.getElementById("errorMetric");
+        const plotEl = document.getElementById("plot");
+        const alphaLegend = document.querySelector(".legend .alpha");
+        const previewWraps = [document.getElementById("originalWrap"), document.getElementById("approxWrap")];
+        const originalCanvas = document.getElementById("originalCanvas");
+        const approxCanvas = document.getElementById("approxCanvas");
+        const originalCtx = originalCanvas.getContext("2d");
+        const approxCtx = approxCanvas.getContext("2d");
+
+        const colors = {
+            r: "#c04454",
+            g: "#0d7f78",
+            b: "#2d63ad",
+            a: "#5f6670"
+        };
+
+        let state = null;
+        let jobId = 0;
+        let currentRank = 1;
+        let isDraggingRank = false;
+        let previewView = { scale: 1, x: 0, y: 0 };
+        let previewDrag = null;
+        let loadedImage = null;
+        let loadedImageName = "";
+        const desktopPlotMargins = { l: 72, r: 24, t: 18, b: 34 };
+        const mobilePlotMargins = { l: 56, r: 12, t: 12, b: 28 };
+
+        if (window.matchMedia("(max-width: 520px)").matches) {
+            maxSideSelect.value = "320";
+        }
+        drawEmptyPlot();
+        loadDefaultImage();
+
+        fileInput.addEventListener("change", () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (file) {
+                loadImageFile(file);
+            }
+        });
+
+        urlInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                loadImageUrl(urlInput.value.trim());
+            }
+        });
+
+        chooseFileButton.addEventListener("click", () => {
+            fileInput.click();
+        });
+
+        imageInputBox.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && event.target === imageInputBox) {
+                event.preventDefault();
+                urlInput.focus();
+            }
+        });
+
+        imageInputBox.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            imageInputBox.classList.add("is-dragging");
+        });
+
+        imageInputBox.addEventListener("dragleave", () => {
+            imageInputBox.classList.remove("is-dragging");
+        });
+
+        imageInputBox.addEventListener("drop", (event) => {
+            event.preventDefault();
+            imageInputBox.classList.remove("is-dragging");
+            const file = Array.from(event.dataTransfer.files || []).find((item) => item.type.startsWith("image/"));
+            if (file) {
+                loadImageFile(file);
+                return;
+            }
+            const url = event.dataTransfer.getData("text/uri-list") || event.dataTransfer.getData("text/plain");
+            if (url) {
+                urlInput.value = url.trim();
+                loadImageUrl(urlInput.value);
+            }
+        });
+
+        window.addEventListener("paste", (event) => {
+            const active = document.activeElement;
+            const isInputPaste = active === urlInput || imageInputBox.contains(active);
+            if (!isInputPaste) return;
+            const items = event.clipboardData && Array.from(event.clipboardData.items || []);
+            const imageItem = items.find((item) => item.type.startsWith("image/"));
+            if (!imageItem) return;
+            const file = imageItem.getAsFile();
+            if (file) {
+                event.preventDefault();
+                loadImageFile(file, "Clipboard image");
+            }
+        });
+
+        maxSideSelect.addEventListener("change", () => {
+            if (loadedImage) {
+                const currentJob = ++jobId;
+                resetOutputs();
+                processImage(loadedImage, loadedImageName, currentJob);
+            }
+        });
+
+        plotEl.addEventListener("pointerdown", (event) => {
+            if (!state) return;
+            isDraggingRank = true;
+            plotEl.setPointerCapture(event.pointerId);
+            setRankFromPointer(event);
+        });
+
+        plotEl.addEventListener("pointermove", (event) => {
+            if (!state || !isDraggingRank) return;
+            setRankFromPointer(event);
+        });
+
+        plotEl.addEventListener("pointerup", (event) => {
+            isDraggingRank = false;
+            if (plotEl.hasPointerCapture(event.pointerId)) {
+                plotEl.releasePointerCapture(event.pointerId);
+            }
+        });
+
+        plotEl.addEventListener("pointercancel", () => {
+            isDraggingRank = false;
+        });
+
+        resetPreviewButton.addEventListener("click", resetPreviewView);
+
+        previewWraps.forEach((wrap) => {
+            wrap.addEventListener("wheel", handlePreviewWheel, { passive: false });
+            wrap.addEventListener("pointerdown", handlePreviewPointerDown);
+            wrap.addEventListener("pointermove", handlePreviewPointerMove);
+            wrap.addEventListener("pointerup", handlePreviewPointerUp);
+            wrap.addEventListener("pointercancel", handlePreviewPointerUp);
+        });
+
+        let resizeTimer = 0;
+        window.addEventListener("resize", () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(() => {
+                if (state) {
+                    drawSingularPlot();
+                } else {
+                    drawEmptyPlot();
+                }
+            }, 120);
+        });
+
+        function setStatus(message) {
+            statusEl.textContent = message;
+        }
+
+        function loadImageFile(file, fallbackName) {
+            const currentJob = ++jobId;
+            loadedImage = null;
+            loadedImageName = "";
+            resetOutputs();
+            setStatus("Reading image...");
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                const image = new Image();
+                image.onload = () => {
+                    if (currentJob !== jobId) return;
+                    processImage(image, fallbackName || file.name || "Image", currentJob);
+                };
+                image.onerror = () => setStatus("Failed to read the image. Try another file.");
+                image.src = reader.result;
+            };
+            reader.onerror = () => setStatus("Failed to read the file.");
+            reader.readAsDataURL(file);
+        }
+
+        async function loadImageUrl(url) {
+            if (!url) {
+                setStatus("Enter an image URL.");
+                return;
+            }
+            const currentJob = ++jobId;
+            loadedImage = null;
+            loadedImageName = "";
+            resetOutputs();
+            setStatus("Loading image URL...");
+            try {
+                const response = await fetch(url, { mode: "cors" });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const blob = await response.blob();
+                if (!blob.type.startsWith("image/")) {
+                    throw new Error("URL did not return an image.");
+                }
+                if (currentJob !== jobId) return;
+                loadImageBlob(blob, url, currentJob);
+            } catch (error) {
+                console.error(error);
+                setStatus("Failed to load the URL image. Verify the URL and CORS permissions.");
+            }
+        }
+
+        function loadImageBlob(blob, name, currentJob) {
+            setStatus("Decoding image...");
+            const objectUrl = URL.createObjectURL(blob);
+            const image = new Image();
+            image.onload = () => {
+                URL.revokeObjectURL(objectUrl);
+                if (currentJob !== jobId) return;
+                processImage(image, name, currentJob);
+            };
+            image.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                setStatus("Image decoding failed. Try another source.");
+            };
+            image.src = objectUrl;
+        }
+
+        function loadDefaultImage() {
+            const currentJob = ++jobId;
+            resetOutputs();
+            setStatus("Loading sample image...");
+            const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640">
+          <defs>
+            <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0" stop-color="#f7f7f3"/>
+              <stop offset="0.55" stop-color="#dbe9e5"/>
+              <stop offset="1" stop-color="#ead0bf"/>
+            </linearGradient>
+            <linearGradient id="panel" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stop-color="#d99b75"/>
+              <stop offset="1" stop-color="#e8c1a2"/>
+            </linearGradient>
+            <pattern id="lines" width="54" height="54" patternUnits="userSpaceOnUse" patternTransform="rotate(32)">
+              <rect width="54" height="54" fill="transparent"/>
+              <rect x="0" y="0" width="7" height="54" fill="#1d5f8a" opacity="0.16"/>
+            </pattern>
+          </defs>
+          <rect width="960" height="640" fill="url(#bg)"/>
+          <rect x="110" y="110" width="740" height="420" fill="url(#panel)"/>
+          <rect x="110" y="110" width="740" height="420" fill="url(#lines)"/>
+          <polygon points="250,205 710,205 250,435" fill="#ffffff" opacity="0.94"/>
+          <polygon points="710,205 710,435 250,435" fill="#eef3f1" opacity="0.94"/>
+          <path d="M170,488 C285,410 362,505 475,432 C598,352 690,448 805,365 L805,530 L170,530 Z" fill="#1d5f8a" opacity="0.42"/>
+          <rect x="0" y="0" width="960" height="640" fill="none"/>
+        </svg>
+      `;
+            const blob = new Blob([svg], { type: "image/svg+xml" });
+            loadImageBlob(blob, "Sample image", currentJob);
+        }
+
+        async function processImage(image, name, currentJob) {
+            loadedImage = image;
+            loadedImageName = name;
+            updateSizeOptions(image.naturalWidth, image.naturalHeight);
+            const size = getSelectedComputeSize(image.naturalWidth, image.naturalHeight);
+            const width = size.width;
+            const height = size.height;
+
+            originalCanvas.width = width;
+            originalCanvas.height = height;
+            approxCanvas.width = width;
+            approxCanvas.height = height;
+            setPreviewAspect(width, height);
+            resetPreviewView();
+            resetPreviewButton.disabled = false;
+            originalCanvas.hidden = false;
+            approxCanvas.hidden = false;
+            hidePlaceholders();
+
+            originalCtx.clearRect(0, 0, width, height);
+            originalCtx.drawImage(image, 0, 0, width, height);
+            const sourceImage = originalCtx.getImageData(0, 0, width, height);
+            const channels = imageDataToChannels(sourceImage, width, height);
+            const channelKeys = channels.hasTransparency ? ["r", "g", "b", "a"] : ["r", "g", "b"];
+            alphaLegend.hidden = !channels.hasTransparency;
+
+            imageMeta.textContent = `Original size: ${image.naturalWidth} x ${image.naturalHeight}`;
+            originalInfo.textContent = name;
+            if (maxSideSelect.value === "full") {
+                const rankSize = Math.min(width, height);
+                setStatus(`Computing at original resolution. Large matrices may be slow. Channel matrix: ${height} x ${width}; max rank: ${rankSize}.`);
+                await nextFrame();
+            }
+            setStatus(`Computing SVD for ${channelKeys.map((key) => key.toUpperCase()).join("/")} channels...`);
+
+            await nextFrame();
+            const svd = {};
+            let completedChannels = 0;
+            try {
+                const results = await Promise.all(channelKeys.map(async (key) => {
+                    const value = await computeSvd(channels[key], height, width);
+                    completedChannels += 1;
+                    setStatus(`Parallel SVD: ${completedChannels}/${channelKeys.length} channels complete.`);
+                    return [key, value];
+                }));
+                if (currentJob !== jobId) return;
+                for (const [key, value] of results) {
+                    svd[key] = value;
+                }
+            } catch (error) {
+                console.error(error);
+                setStatus("SVD failed: the numeric library is unavailable or the matrix is too large. Check the network or choose a lower resolution.");
+                return;
+            }
+
+            const maxRank = Math.min(height, width);
+            state = { width, height, channels, channelKeys, svd };
+            currentRank = clamp(Math.round(maxRank * 0.15), 1, maxRank);
+            rankMeta.textContent = `Available rank: 1 to ${maxRank}`;
+            drawSingularPlot();
+            updateApproximation();
+            setStatus("Done. Drag the vertical marker to update the truncation rank r.");
+        }
+
+        function resetOutputs() {
+            state = null;
+            currentRank = 1;
+            imageMeta.textContent = "Original size: -";
+            rankMeta.textContent = "Available rank: -";
+            originalInfo.textContent = "-";
+            approxInfo.textContent = "r = -";
+            alphaLegend.hidden = true;
+            resetPreviewButton.disabled = true;
+            resetPreviewView();
+            energyMetric.textContent = "-";
+            storageMetric.textContent = "-";
+            errorMetric.textContent = "-";
+            originalCanvas.hidden = true;
+            approxCanvas.hidden = true;
+            showPlaceholders();
+            drawEmptyPlot();
+        }
+
+        function setPreviewAspect(width, height) {
+            const ratio = width / Math.max(height, 1);
+            const previewWidth = ratio >= 1 ? "100%" : `${ratio * 100}%`;
+            const previewHeight = ratio >= 1 ? `${100 / ratio}%` : "100%";
+            [originalCanvas, approxCanvas].forEach((canvas) => {
+                canvas.style.setProperty("--preview-width", previewWidth);
+                canvas.style.setProperty("--preview-height", previewHeight);
+            });
+        }
+
+        function resetPreviewView() {
+            previewView = { scale: 1, x: 0, y: 0 };
+            previewDrag = null;
+            previewWraps.forEach((wrap) => wrap.classList.remove("is-panning"));
+            applyPreviewView();
+        }
+
+        function applyPreviewView() {
+            [originalCanvas, approxCanvas].forEach((canvas) => {
+                canvas.style.setProperty("--zoom", previewView.scale);
+                canvas.style.setProperty("--pan-x", `${previewView.x}px`);
+                canvas.style.setProperty("--pan-y", `${previewView.y}px`);
+            });
+        }
+
+        function handlePreviewWheel(event) {
+            if (!state) return;
+            event.preventDefault();
+            const rect = event.currentTarget.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const pointerX = event.clientX - rect.left;
+            const pointerY = event.clientY - rect.top;
+            const oldScale = previewView.scale;
+            const factor = Math.exp(-event.deltaY * 0.0015);
+            const nextScale = clamp(oldScale * factor, 1, 16);
+            const localX = (pointerX - centerX - previewView.x) / oldScale;
+            const localY = (pointerY - centerY - previewView.y) / oldScale;
+
+            previewView.scale = nextScale;
+            previewView.x = pointerX - centerX - localX * nextScale;
+            previewView.y = pointerY - centerY - localY * nextScale;
+            clampPreviewPan(rect);
+            applyPreviewView();
+        }
+
+        function handlePreviewPointerDown(event) {
+            if (!state || event.button !== 0) return;
+            event.preventDefault();
+            previewDrag = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                viewX: previewView.x,
+                viewY: previewView.y
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+            previewWraps.forEach((wrap) => wrap.classList.add("is-panning"));
+        }
+
+        function handlePreviewPointerMove(event) {
+            if (!previewDrag || previewDrag.pointerId !== event.pointerId) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            previewView.x = previewDrag.viewX + event.clientX - previewDrag.startX;
+            previewView.y = previewDrag.viewY + event.clientY - previewDrag.startY;
+            clampPreviewPan(rect);
+            applyPreviewView();
+        }
+
+        function handlePreviewPointerUp(event) {
+            if (!previewDrag || previewDrag.pointerId !== event.pointerId) return;
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+            previewDrag = null;
+            previewWraps.forEach((wrap) => wrap.classList.remove("is-panning"));
+        }
+
+        function clampPreviewPan(rect) {
+            if (previewView.scale <= 1) {
+                previewView.x = 0;
+                previewView.y = 0;
+                return;
+            }
+            const maxX = rect.width * (previewView.scale - 1) / 2;
+            const maxY = rect.height * (previewView.scale - 1) / 2;
+            previewView.x = clamp(previewView.x, -maxX, maxX);
+            previewView.y = clamp(previewView.y, -maxY, maxY);
+        }
+
+        function updateSizeOptions(naturalWidth, naturalHeight) {
+            const labels = {
+                192: "fastest",
+                320: "",
+                512: "recommended",
+                768: "slower",
+                full: "original, very slow"
+            };
+            Array.from(maxSideSelect.options).forEach((option) => {
+                const maxSide = option.value;
+                const size = getScaledSize(naturalWidth, naturalHeight, maxSide);
+                const suffix = labels[maxSide] ? ` (${labels[maxSide]})` : "";
+                option.textContent = `${size.width} x ${size.height}${suffix}`;
+            });
+        }
+
+        function getScaledSize(naturalWidth, naturalHeight, maxSide) {
+            if (maxSide === "full") {
+                return { width: naturalWidth, height: naturalHeight };
+            }
+            const numericMaxSide = Number(maxSide);
+            const scale = Math.min(1, numericMaxSide / Math.max(naturalWidth, naturalHeight));
+            return {
+                width: Math.max(1, Math.round(naturalWidth * scale)),
+                height: Math.max(1, Math.round(naturalHeight * scale))
+            };
+        }
+
+        function getSelectedComputeSize(naturalWidth, naturalHeight) {
+            return getScaledSize(naturalWidth, naturalHeight, maxSideSelect.value);
+        }
+
+        function showPlaceholders() {
+            document.querySelectorAll(".placeholder").forEach((el) => {
+                el.hidden = false;
+            });
+        }
+
+        function hidePlaceholders() {
+            document.querySelectorAll(".placeholder").forEach((el) => {
+                el.hidden = true;
+            });
+        }
+
+        function imageDataToChannels(imageData, width, height) {
+            const total = width * height;
+            const r = new Float64Array(total);
+            const g = new Float64Array(total);
+            const b = new Float64Array(total);
+            const a = new Float64Array(total);
+            const data = imageData.data;
+            let hasTransparency = false;
+            for (let i = 0, p = 0; i < total; i++, p += 4) {
+                r[i] = data[p];
+                g[i] = data[p + 1];
+                b[i] = data[p + 2];
+                a[i] = data[p + 3];
+                if (data[p + 3] < 255) {
+                    hasTransparency = true;
+                }
+            }
+            return { r, g, b, a, hasTransparency };
+        }
+
+        function computeSvd(matrix, rows, cols) {
+            return new Promise((resolve, reject) => {
+                const worker = createSvdWorker();
+                const cleanup = () => {
+                    worker.terminate();
+                    URL.revokeObjectURL(worker.workerUrl);
+                };
+                worker.onmessage = (event) => {
+                    cleanup();
+                    if (event.data.ok) {
+                        resolve(event.data.svd);
+                    } else {
+                        reject(new Error(event.data.error || "SVD failed"));
+                    }
+                };
+                worker.onerror = (event) => {
+                    cleanup();
+                    reject(new Error(event.message || "SVD worker failed"));
+                };
+                worker.postMessage({ matrix, rows, cols });
+            });
+        }
+
+        function createSvdWorker() {
+            const source = `
+        self.importScripts("https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js");
+
+        self.onmessage = function(event) {
+          try {
+            const matrix = event.data.matrix;
+            const rows = event.data.rows;
+            const cols = event.data.cols;
+            const svd = computeSvdInWorker(matrix, rows, cols);
+            self.postMessage({ ok: true, svd });
+          } catch (error) {
+            self.postMessage({ ok: false, error: error && error.message ? error.message : String(error) });
+          }
+        };
+
+        function computeSvdInWorker(matrix, rows, cols) {
+          if (!self.numeric || typeof numeric.svd !== "function") {
+            throw new Error("numeric.js SVD library is not available");
+          }
+
+          const transposed = cols > rows;
+          const dataRows = transposed ? cols : rows;
+          const dataCols = transposed ? rows : cols;
+          const data = new Array(dataRows);
+          for (let row = 0; row < dataRows; row++) {
+            const line = new Array(dataCols);
+            for (let col = 0; col < dataCols; col++) {
+              line[col] = transposed ? matrix[col * cols + row] : matrix[row * cols + col];
+            }
+            data[row] = line;
+          }
+
+          const result = numeric.svd(data);
+          const rankData = result.S.map((sigma, i) => {
+            const u = new Float64Array(rows);
+            const v = new Float64Array(cols);
+            if (transposed) {
+              for (let row = 0; row < rows; row++) {
+                u[row] = result.V[row][i] || 0;
+              }
+              for (let col = 0; col < cols; col++) {
+                v[col] = result.U[col][i] || 0;
+              }
+            } else {
+              for (let row = 0; row < rows; row++) {
+                u[row] = result.U[row][i] || 0;
+              }
+              for (let col = 0; col < cols; col++) {
+                v[col] = result.V[col][i] || 0;
+              }
+            }
+            return { sigma, u, v };
+          });
+          return finalizeSvd(rankData);
+        }
+
+        function finalizeSvd(rankData) {
+          const sigmas = rankData.map((item) => item.sigma);
+          const totalEnergy = sigmas.reduce((sum, sigma) => sum + sigma * sigma, 0);
+          const prefixEnergy = [];
+          let running = 0;
+          for (const sigma of sigmas) {
+            running += sigma * sigma;
+            prefixEnergy.push(running);
+          }
+          return { rankData, sigmas, totalEnergy, prefixEnergy };
+        }
+      `;
+            const workerUrl = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+            const worker = new Worker(workerUrl);
+            worker.workerUrl = workerUrl;
+            return worker;
+        }
+
+        function updateApproximation() {
+            if (!state) return;
+            const r = currentRank;
+            const { width, height, svd } = state;
+            const red = reconstructChannel(svd.r, r, width, height);
+            const green = reconstructChannel(svd.g, r, width, height);
+            const blue = reconstructChannel(svd.b, r, width, height);
+            const alpha = svd.a ? reconstructChannel(svd.a, r, width, height) : null;
+            const image = approxCtx.createImageData(width, height);
+
+            for (let i = 0, p = 0; i < width * height; i++, p += 4) {
+                const rr = clamp(Math.round(red[i]), 0, 255);
+                const gg = clamp(Math.round(green[i]), 0, 255);
+                const bb = clamp(Math.round(blue[i]), 0, 255);
+                const aa = alpha ? clamp(Math.round(alpha[i]), 0, 255) : 255;
+                image.data[p] = rr;
+                image.data[p + 1] = gg;
+                image.data[p + 2] = bb;
+                image.data[p + 3] = aa;
+            }
+
+            approxCtx.putImageData(image, 0, 0);
+            approxInfo.textContent = `r = ${r}`;
+            updateMetrics(r);
+            drawSingularPlot();
+        }
+
+        function setRankFromPointer(event) {
+            const rank = rankFromPointerEvent(event);
+            if (rank === currentRank) return;
+            currentRank = rank;
+            updateApproximation();
+        }
+
+        function rankFromPointerEvent(event) {
+            const rect = plotEl.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const area = getPlotArea(rect.width, rect.height);
+            const maxRank = Math.min(state.width, state.height);
+            const t = clamp((x - area.left) / area.width, 0, 1);
+            return clamp(Math.round(1 + t * (maxRank - 1)), 1, maxRank);
+        }
+
+        function getPlotArea(width, height) {
+            const pad = getPlotMargins();
+            return {
+                left: pad.l,
+                top: pad.t,
+                width: width - pad.l - pad.r,
+                height: height - pad.t - pad.b,
+                right: width - pad.r,
+                bottom: height - pad.b
+            };
+        }
+
+        function getPlotMargins() {
+            return window.matchMedia("(max-width: 520px)").matches ? mobilePlotMargins : desktopPlotMargins;
+        }
+
+        function reconstructChannel(svd, rank, width, height) {
+            const out = new Float64Array(width * height);
+            const usableRank = Math.min(rank, svd.rankData.length);
+            for (let k = 0; k < usableRank; k++) {
+                const item = svd.rankData[k];
+                const sigma = item.sigma;
+                if (sigma <= 1e-10) continue;
+                for (let row = 0; row < height; row++) {
+                    const scaledU = sigma * item.u[row];
+                    const base = row * width;
+                    for (let col = 0; col < width; col++) {
+                        out[base + col] += scaledU * item.v[col];
+                    }
+                }
+            }
+            return out;
+        }
+
+        function updateMetrics(rank) {
+            const channels = state.channelKeys.map((key) => state.svd[key]);
+            const keptEnergy = channels.reduce((sum, svd) => {
+                const keep = svd.prefixEnergy[Math.min(rank, svd.prefixEnergy.length) - 1] || 0;
+                return sum + keep;
+            }, 0);
+            const totalEnergy = channels.reduce((sum, svd) => sum + svd.totalEnergy, 0);
+            const energy = keptEnergy / Math.max(totalEnergy, 1);
+            const relativeError = Math.sqrt(Math.max(0, 1 - energy));
+            const fullStorage = state.width * state.height;
+            const lowRankStorage = rank * (state.width + state.height + 1);
+            energyMetric.textContent = formatPercent(energy);
+            storageMetric.textContent = formatPercent(lowRankStorage / fullStorage);
+            errorMetric.textContent = formatPercent(relativeError);
+        }
+
+        function formatPercent(value) {
+            if (!Number.isFinite(value)) return "-";
+            const percent = value * 100;
+            const abs = Math.abs(percent);
+            if (abs === 0) return "0%";
+            if (abs < 0.001) return `${percent.toExponential(2)}%`;
+            if (abs < 0.01) return `${percent.toPrecision(2)}%`;
+            if (abs < 1) return `${percent.toFixed(3)}%`;
+            if (abs < 10) return `${percent.toFixed(2)}%`;
+            if (abs > 99 && abs < 100) return `${percent.toFixed(4)}%`;
+            if (abs >= 100) return `${percent.toFixed(1)}%`;
+            return `${percent.toFixed(1)}%`;
+        }
+
+        function drawEmptyPlot() {
+            if (!window.Plotly) {
+                plotEl.textContent = "Plotting library failed to load. Check the network connection.";
+                return;
+            }
+            Plotly.newPlot(plotEl, [], basePlotLayout(), plotConfig());
+        }
+
+        function drawSingularPlot() {
+            if (!state) return;
+            if (!window.Plotly) return;
+            const series = state.channelKeys.map((key) => ({
+                x: state.svd[key].sigmas.map((_, index) => index + 1),
+                y: relativeSigmas(state.svd[key].sigmas),
+                type: "scatter",
+                mode: "lines",
+                name: key.toUpperCase(),
+                line: { color: colors[key], width: 1.8 },
+                hovertemplate: "i=%{x}<br>%{y:.3e}<extra>" + key.toUpperCase() + "</extra>"
+            }));
+
+            const maxLen = Math.max(...state.channelKeys.map((key) => state.svd[key].sigmas.length));
+            let minLog = -6;
+            for (const key of state.channelKeys) {
+                const values = state.svd[key].sigmas;
+                const first = Math.max(values[0] || 1, 1e-12);
+                for (const value of values) {
+                    if (value > 1e-12) {
+                        minLog = Math.min(minLog, Math.log10(value / first));
+                    }
+                }
+            }
+            minLog = Math.max(-12, Math.floor(minLog));
+
+            const layout = basePlotLayout();
+            layout.xaxis.range = [1, maxLen];
+            layout.yaxis.range = [minLog, 0];
+            layout.yaxis.tickvals = logTickValues(minLog);
+            layout.yaxis.ticktext = layout.yaxis.tickvals.map(formatLogTick);
+            const breakEvenRank = storageBreakEvenRank(state.height, state.width);
+            layout.shapes = [{
+                type: "line",
+                x0: currentRank,
+                x1: currentRank,
+                y0: Math.pow(10, minLog),
+                y1: 1,
+                xref: "x",
+                yref: "y",
+                line: { color: "#1c2420", width: 1.4, dash: "dash" }
+            }];
+            if (breakEvenRank >= 1 && breakEvenRank <= maxLen) {
+                layout.shapes.push({
+                    type: "line",
+                    x0: breakEvenRank,
+                    x1: breakEvenRank,
+                    y0: Math.pow(10, minLog),
+                    y1: 1,
+                    xref: "x",
+                    yref: "y",
+                    line: { color: "rgba(28,36,32,0.28)", width: 1.2, dash: "dot" }
+                });
+            }
+            layout.annotations = [{
+                x: currentRank,
+                y: 1,
+                xref: "x",
+                yref: "y",
+                text: "r = " + currentRank,
+                showarrow: false,
+                xanchor: "left",
+                yanchor: "top",
+                font: { family: "Times New Roman, serif", size: 13, color: "#1c2420" },
+                bgcolor: "rgba(255,255,255,0.72)"
+            }];
+            if (breakEvenRank >= 1 && breakEvenRank <= maxLen) {
+                layout.annotations.push({
+                    x: breakEvenRank,
+                    y: Math.pow(10, minLog),
+                    xref: "x",
+                    yref: "y",
+                    text: "storage = 100%",
+                    showarrow: false,
+                    xanchor: "left",
+                    yanchor: "bottom",
+                    font: { family: "Times New Roman, serif", size: 12, color: "rgba(28,36,32,0.62)" },
+                    textangle: -90
+                });
+            }
+
+            Plotly.react(plotEl, series, layout, plotConfig());
+        }
+
+        function relativeSigmas(sigmas) {
+            const first = Math.max(sigmas[0] || 1, 1e-12);
+            return sigmas.map((sigma) => Math.max(sigma / first, 1e-12));
+        }
+
+        function storageBreakEvenRank(height, width) {
+            return Math.ceil((height * width) / (height + width + 1));
+        }
+
+        function basePlotLayout() {
+            const plotMargins = getPlotMargins();
+            return {
+                paper_bgcolor: "#ffffff",
+                plot_bgcolor: "#ffffff",
+                margin: plotMargins,
+                showlegend: false,
+                dragmode: false,
+                font: { family: "Times New Roman, serif", size: 14, color: "#222222" },
+                xaxis: {
+                    title: "",
+                    fixedrange: true,
+                    showline: true,
+                    linecolor: "#222222",
+                    linewidth: 1,
+                    mirror: false,
+                    ticks: "outside",
+                    ticklen: 4,
+                    tickwidth: 1,
+                    tickcolor: "#222222",
+                    showgrid: false,
+                    zeroline: false,
+                    automargin: false
+                },
+                yaxis: {
+                    title: "",
+                    type: "log",
+                    range: [-6, 0],
+                    fixedrange: true,
+                    showline: true,
+                    linecolor: "#222222",
+                    linewidth: 1,
+                    mirror: false,
+                    ticks: "outside",
+                    ticklen: 4,
+                    tickwidth: 1,
+                    tickcolor: "#222222",
+                    gridcolor: "#e7e7e7",
+                    gridwidth: 1,
+                    zeroline: false,
+                    tickvals: logTickValues(-6),
+                    ticktext: logTickValues(-6).map(formatLogTick)
+                }
+            };
+        }
+
+        function plotConfig() {
+            return {
+                responsive: true,
+                displayModeBar: false,
+                staticPlot: false,
+                scrollZoom: false,
+                doubleClick: false
+            };
+        }
+
+        function logTickValues(minLog) {
+            const bottom = Math.floor(minLog);
+            const ticks = [];
+            for (let exp = 0; exp >= bottom; exp--) {
+                ticks.push(Math.pow(10, exp));
+            }
+            return ticks;
+        }
+
+        function formatLogTick(value) {
+            const exponent = Math.round(Math.log10(value));
+            if (exponent === 0) return "1";
+            return "10<sup>" + exponent + "</sup>";
+        }
+
+        function clamp(value, min, max) {
+            return Math.min(max, Math.max(min, value));
+        }
+
+        function nextFrame() {
+            return new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+    </script>
+</body>
+
+</html>
